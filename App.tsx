@@ -416,7 +416,7 @@ const App: React.FC = () => {
           <img 
             src="/favicon.png" 
             alt="YUM Network Logo" 
-            className="h-16 w-16 sm:h-24 sm:w-24 object-contain rounded-md" 
+            className="h-10 w-10 object-contain rounded-md" 
             referrerPolicy="no-referrer" 
           />
         </div>
