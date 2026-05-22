@@ -148,7 +148,14 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
     const [user, setUser] = useState<Omit<User, 'id'> | User | null>(null);
 
     useEffect(() => {
-        setUser(userToEdit || { name: '', role: 'member', email: '', password: '', groupId: null });
+        if (userToEdit) {
+            setUser({
+                ...userToEdit,
+                managedGroupIds: userToEdit.managedGroupIds || []
+            });
+        } else {
+            setUser({ name: '', role: 'member', email: '', password: '', groupId: null, managedGroupIds: [] });
+        }
     }, [userToEdit]);
 
     if (!isOpen || !user) return null;
@@ -194,12 +201,40 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
                         </select>
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-gray-700">Nhóm</label>
+                        <label className="block text-sm font-medium text-gray-700">Nhóm chính</label>
                         <select name="groupId" value={user.groupId ?? ''} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2">
                            <option value="">Không có nhóm</option>
                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                         </select>
-                    </div>
+                     </div>
+                     {user.role === 'leader' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Các nhóm quản lý phụ (Có thể chọn nhiều)</label>
+                            <div className="space-y-1.5 border border-gray-200 rounded-md p-3 max-h-40 overflow-y-auto">
+                                {groups.map(g => {
+                                    const isChecked = user.managedGroupIds?.includes(g.id) || false;
+                                    return (
+                                        <label key={g.id} className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => {
+                                                    const currentManaged = user.managedGroupIds || [];
+                                                    const updatedManaged = isChecked
+                                                        ? currentManaged.filter(id => id !== g.id)
+                                                        : [...currentManaged, g.id];
+                                                    setUser({ ...user, managedGroupIds: updatedManaged });
+                                                }}
+                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                            <span className="flex-grow">{g.name}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            <p className="mt-1 text-[11px] text-gray-500">Giúp phân quyền cho Trưởng nhóm có thể tham gia và quản trị nhiều nhóm khác nhau.</p>
+                        </div>
+                     )}
                     <div className="flex justify-end space-x-2 pt-2">
                         <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Hủy</button>
                         <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Lưu</button>
@@ -373,11 +408,27 @@ const UserManagement: React.FC<UserManagementProps> = ({
                                     </span>
                                 </td>
                                 <td className="p-3 text-sm text-gray-700 whitespace-nowrap">
-                                    {userGroup ? (
-                                        <Badge colorClass={userGroup.colorClass}>{userGroup.name}</Badge>
-                                    ) : (
-                                        <span className="text-gray-400">N/A</span>
-                                    )}
+                                    <div className="flex flex-wrap items-center gap-1">
+                                        {userGroup ? (
+                                            <Badge colorClass={userGroup.colorClass}>{userGroup.name}</Badge>
+                                        ) : (
+                                            <span className="text-gray-400">N/A</span>
+                                        )}
+                                        {user.role === 'leader' && user.managedGroupIds && user.managedGroupIds.length > 0 && (
+                                            <>
+                                                <span className="text-gray-400 text-xs font-bold font-mono px-1">+</span>
+                                                {user.managedGroupIds.map(gId => {
+                                                    const g = groups.find(gp => gp.id === gId);
+                                                    if (!g) return null;
+                                                    return (
+                                                        <span key={g.id} className="px-2 py-0.5 text-[10px] font-semibold rounded bg-indigo-50 text-indigo-700 border border-indigo-200" title={`Nhóm quản lý: ${g.name}`}>
+                                                            {g.name}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="p-3 text-right whitespace-nowrap">
                                     <button onClick={() => handleOpenUserModal(user)} className="text-blue-500 hover:text-blue-700 mr-4 text-xs font-semibold">Sửa</button>

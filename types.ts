@@ -25,6 +25,7 @@ export interface User {
   email: string;
   password: string;
   groupId: number | null;
+  managedGroupIds?: number[];
 }
 
 export interface Task {

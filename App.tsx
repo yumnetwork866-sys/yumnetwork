@@ -62,8 +62,12 @@ const App: React.FC = () => {
       const isAssigneeLeader = assignee?.role === 'leader';
 
       if (loggedInUser.role === 'leader') {
-        // Leader: can only see tasks of their team
-        if (task.groupId !== loggedInUser.groupId) return false;
+        // Leader: can only see tasks of groups they manage (primary group or sub groups)
+        const isManagedGroup = task.groupId !== null && (
+          task.groupId === loggedInUser.groupId ||
+          (loggedInUser.managedGroupIds && loggedInUser.managedGroupIds.includes(task.groupId))
+        );
+        if (!isManagedGroup) return false;
 
         // Leader's tasks can only be seen by admin and themselves
         if (isAssigneeLeader && task.assigneeId !== loggedInUser.id) {
@@ -87,6 +91,14 @@ const App: React.FC = () => {
   const visibleUsers = useMemo(() => {
     if (!loggedInUser) return [];
     if (loggedInUser.role === 'admin') return users;
+    if (loggedInUser.role === 'leader') {
+      return users.filter(u => 
+        u.id === loggedInUser.id || 
+        u.role === 'admin' ||
+        u.groupId === loggedInUser.groupId ||
+        (loggedInUser.managedGroupIds && u.groupId !== null && loggedInUser.managedGroupIds.includes(u.groupId))
+      );
+    }
     return users.filter(u => u.groupId === loggedInUser.groupId || u.role === 'admin');
   }, [users, loggedInUser]);
 
@@ -151,7 +163,10 @@ const App: React.FC = () => {
 
   const handleAddTask = async (newTask: Omit<Task, 'id'>) => {
     if (!loggedInUser) return;
-    const isLeaderOfGroup = loggedInUser.role === 'leader' && loggedInUser.groupId !== null && newTask.groupId === loggedInUser.groupId;
+    const isLeaderOfGroup = loggedInUser.role === 'leader' && (
+      (loggedInUser.groupId !== null && newTask.groupId === loggedInUser.groupId) ||
+      (loggedInUser.managedGroupIds && newTask.groupId !== null && loggedInUser.managedGroupIds.includes(newTask.groupId))
+    );
     const isMemberOfTheirOwnTask = loggedInUser.role === 'member' && newTask.assigneeId === loggedInUser.id;
     if (loggedInUser.role !== 'admin' && !isLeaderOfGroup && !isMemberOfTheirOwnTask) return;
     try {
@@ -171,7 +186,10 @@ const App: React.FC = () => {
     if (!loggedInUser || newTasks.length === 0) return;
     const hasPermission = newTasks.every(task => {
         if (loggedInUser.role === 'admin') return true;
-        if (loggedInUser.role === 'leader' && loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) return true;
+        if (loggedInUser.role === 'leader') {
+             return (loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) ||
+                    (loggedInUser.managedGroupIds && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
+        }
         if (loggedInUser.role === 'member' && task.assigneeId === loggedInUser.id) return true;
         return false;
     });
@@ -196,7 +214,10 @@ const App: React.FC = () => {
     if (!loggedInUser) return;
     const taskToDelete = tasks.find((t) => t.id === taskId);
     if (!taskToDelete) return;
-    const isLeaderOfGroup = loggedInUser.role === 'leader' && loggedInUser.groupId !== null && taskToDelete.groupId === loggedInUser.groupId;
+    const isLeaderOfGroup = loggedInUser.role === 'leader' && (
+      (loggedInUser.groupId !== null && taskToDelete.groupId === loggedInUser.groupId) ||
+      (loggedInUser.managedGroupIds && taskToDelete.groupId !== null && loggedInUser.managedGroupIds.includes(taskToDelete.groupId))
+    );
     const isMemberOfTheirOwnTask = loggedInUser.role === 'member' && taskToDelete.assigneeId === loggedInUser.id;
     if (loggedInUser.role !== 'admin' && !isLeaderOfGroup && !isMemberOfTheirOwnTask) return;
      try {
@@ -210,7 +231,10 @@ const App: React.FC = () => {
     const tasksToDelete = tasks.filter((t) => taskIds.includes(t.id));
     const hasPermission = tasksToDelete.every(task => {
         if (loggedInUser.role === 'admin') return true;
-        if (loggedInUser.role === 'leader' && loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) return true;
+        if (loggedInUser.role === 'leader') {
+            return (loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) ||
+                   (loggedInUser.managedGroupIds && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
+        }
         if (loggedInUser.role === 'member' && task.assigneeId === loggedInUser.id) return true;
         return false;
     });
