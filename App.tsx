@@ -7,6 +7,23 @@ import UserManagement from './components/UserManagement';
 import Login from './components/Login';
 import { apiRequest } from './api';
 
+const normalizeUser = (user: User): User => {
+  let managed: number[] = [];
+  if (Array.isArray(user.managedGroupIds)) {
+    managed = user.managedGroupIds.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+  } else if (typeof user.managedGroupIds === 'string' && (user.managedGroupIds as string).trim() !== '') {
+    try {
+      const parsed = JSON.parse(user.managedGroupIds);
+      if (Array.isArray(parsed)) {
+        managed = parsed.map(id => typeof id === 'string' ? parseInt(id, 10) : id);
+      }
+    } catch {
+      managed = [];
+    }
+  }
+  return { ...user, managedGroupIds: managed };
+};
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('Tổng quan');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,7 +37,9 @@ const App: React.FC = () => {
   const [loggedInUser, setLoggedInUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('loggedInUser');
     try {
-        return savedUser ? JSON.parse(savedUser) : null;
+        if (!savedUser) return null;
+        const parsed = JSON.parse(savedUser) as User;
+        return normalizeUser(parsed);
     } catch {
         localStorage.removeItem('loggedInUser');
         return null;
@@ -38,7 +57,7 @@ const App: React.FC = () => {
                     apiRequest<Group[]>('/api/groups'),
                     apiRequest<Task[]>('/api/tasks')
                 ]);
-                setUsers(usersData);
+                setUsers(usersData.map(normalizeUser));
                 setGroups(groupsData);
                 setTasks(tasksData);
             } catch (err: any) {
@@ -65,7 +84,7 @@ const App: React.FC = () => {
         // Leader: can only see tasks of groups they manage (primary group or sub groups)
         const isManagedGroup = task.groupId !== null && (
           task.groupId === loggedInUser.groupId ||
-          (loggedInUser.managedGroupIds && loggedInUser.managedGroupIds.includes(task.groupId))
+          (Array.isArray(loggedInUser.managedGroupIds) && loggedInUser.managedGroupIds.includes(task.groupId))
         );
         if (!isManagedGroup) return false;
 
@@ -96,7 +115,7 @@ const App: React.FC = () => {
         u.id === loggedInUser.id || 
         u.role === 'admin' ||
         u.groupId === loggedInUser.groupId ||
-        (loggedInUser.managedGroupIds && u.groupId !== null && loggedInUser.managedGroupIds.includes(u.groupId))
+        (Array.isArray(loggedInUser.managedGroupIds) && u.groupId !== null && loggedInUser.managedGroupIds.includes(u.groupId))
       );
     }
     return users.filter(u => u.groupId === loggedInUser.groupId || u.role === 'admin');
@@ -131,8 +150,9 @@ const App: React.FC = () => {
       const allUsers = await apiRequest<User[]>('/api/users');
       const user = allUsers.find(u => u.email === email && u.password === password);
       if (user) {
-        localStorage.setItem('loggedInUser', JSON.stringify(user));
-        setLoggedInUser(user);
+        const normalizedUser = normalizeUser(user);
+        localStorage.setItem('loggedInUser', JSON.stringify(normalizedUser));
+        setLoggedInUser(normalizedUser);
         return true;
       }
       return false;
@@ -165,7 +185,7 @@ const App: React.FC = () => {
     if (!loggedInUser) return;
     const isLeaderOfGroup = loggedInUser.role === 'leader' && (
       (loggedInUser.groupId !== null && newTask.groupId === loggedInUser.groupId) ||
-      (loggedInUser.managedGroupIds && newTask.groupId !== null && loggedInUser.managedGroupIds.includes(newTask.groupId))
+      (Array.isArray(loggedInUser.managedGroupIds) && newTask.groupId !== null && loggedInUser.managedGroupIds.includes(newTask.groupId))
     );
     const isMemberOfTheirOwnTask = loggedInUser.role === 'member' && newTask.assigneeId === loggedInUser.id;
     if (loggedInUser.role !== 'admin' && !isLeaderOfGroup && !isMemberOfTheirOwnTask) return;
@@ -188,7 +208,7 @@ const App: React.FC = () => {
         if (loggedInUser.role === 'admin') return true;
         if (loggedInUser.role === 'leader') {
              return (loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) ||
-                    (loggedInUser.managedGroupIds && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
+                    (Array.isArray(loggedInUser.managedGroupIds) && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
         }
         if (loggedInUser.role === 'member' && task.assigneeId === loggedInUser.id) return true;
         return false;
@@ -216,7 +236,7 @@ const App: React.FC = () => {
     if (!taskToDelete) return;
     const isLeaderOfGroup = loggedInUser.role === 'leader' && (
       (loggedInUser.groupId !== null && taskToDelete.groupId === loggedInUser.groupId) ||
-      (loggedInUser.managedGroupIds && taskToDelete.groupId !== null && loggedInUser.managedGroupIds.includes(taskToDelete.groupId))
+      (Array.isArray(loggedInUser.managedGroupIds) && taskToDelete.groupId !== null && loggedInUser.managedGroupIds.includes(taskToDelete.groupId))
     );
     const isMemberOfTheirOwnTask = loggedInUser.role === 'member' && taskToDelete.assigneeId === loggedInUser.id;
     if (loggedInUser.role !== 'admin' && !isLeaderOfGroup && !isMemberOfTheirOwnTask) return;
@@ -233,7 +253,7 @@ const App: React.FC = () => {
         if (loggedInUser.role === 'admin') return true;
         if (loggedInUser.role === 'leader') {
             return (loggedInUser.groupId !== null && task.groupId === loggedInUser.groupId) ||
-                   (loggedInUser.managedGroupIds && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
+                   (Array.isArray(loggedInUser.managedGroupIds) && task.groupId !== null && loggedInUser.managedGroupIds.includes(task.groupId));
         }
         if (loggedInUser.role === 'member' && task.assigneeId === loggedInUser.id) return true;
         return false;
@@ -250,7 +270,7 @@ const App: React.FC = () => {
      try {
         const result = await apiRequest<User>('/api/users', 'POST', newUser);
         if (result) {
-            setUsers([...users, result]);
+            setUsers([...users, normalizeUser(result)]);
         }
     } catch (error) { console.error("Không thể thêm người dùng:", error); }
   };
@@ -260,11 +280,12 @@ const App: React.FC = () => {
     try {
         const result = await apiRequest<User>(`/api/users/${updatedUser.id}`, 'PUT', updatedUser);
         if (result) {
-            setUsers(users.map(u => u.id === result.id ? result : u));
+            const normalizedResult = normalizeUser(result);
+            setUsers(users.map(u => u.id === normalizedResult.id ? normalizedResult : u));
             
-            if (loggedInUser.id === result.id) {
-                setLoggedInUser(result);
-                localStorage.setItem('loggedInUser', JSON.stringify(result));
+            if (loggedInUser.id === normalizedResult.id) {
+                setLoggedInUser(normalizedResult);
+                localStorage.setItem('loggedInUser', JSON.stringify(normalizedResult));
             }
             // Refetch tasks if a user's group changed, as it might affect task groups.
             const originalUser = users.find(u => u.id === updatedUser.id);

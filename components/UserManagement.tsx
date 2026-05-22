@@ -212,14 +212,14 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
                             <label className="block text-sm font-medium text-gray-700 mb-1">Các nhóm quản lý phụ (Có thể chọn nhiều)</label>
                             <div className="space-y-1.5 border border-gray-200 rounded-md p-3 max-h-40 overflow-y-auto">
                                 {groups.map(g => {
-                                    const isChecked = user.managedGroupIds?.includes(g.id) || false;
+                                    const isChecked = Array.isArray(user.managedGroupIds) && user.managedGroupIds.includes(g.id);
                                     return (
                                         <label key={g.id} className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer hover:bg-gray-50 p-1 rounded">
                                             <input
                                                 type="checkbox"
                                                 checked={isChecked}
                                                 onChange={() => {
-                                                    const currentManaged = user.managedGroupIds || [];
+                                                    const currentManaged = Array.isArray(user.managedGroupIds) ? user.managedGroupIds : [];
                                                     const updatedManaged = isChecked
                                                         ? currentManaged.filter(id => id !== g.id)
                                                         : [...currentManaged, g.id];
@@ -414,7 +414,7 @@ const UserManagement: React.FC<UserManagementProps> = ({
                                         ) : (
                                             <span className="text-gray-400">N/A</span>
                                         )}
-                                        {user.role === 'leader' && user.managedGroupIds && user.managedGroupIds.length > 0 && (
+                                        {user.role === 'leader' && Array.isArray(user.managedGroupIds) && user.managedGroupIds.length > 0 && (
                                             <>
                                                 <span className="text-gray-400 text-xs font-bold font-mono px-1">+</span>
                                                 {user.managedGroupIds.map(gId => {
