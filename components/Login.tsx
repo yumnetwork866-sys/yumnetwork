@@ -25,7 +25,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <div className="bg-gray-50 min-h-screen flex items-center justify-center">
             <div className="max-w-md w-full bg-white p-8 rounded-lg shadow-lg">
                 <div className="flex flex-col items-center mb-6">
-                    <img src="/favicon.png" alt="YUM Network Logo" className="w-20 h-20 object-contain mb-4" referrerPolicy="no-referrer" />
+                    <img src="/favicon.png" alt="YUM Network Logo" className="w-32 h-32 sm:w-36 sm:h-36 object-contain mb-4" referrerPolicy="no-referrer" />
                     <h2 className="text-3xl font-bold text-center text-gray-800">Đăng nhập</h2>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">

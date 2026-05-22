@@ -412,14 +412,13 @@ const App: React.FC = () => {
   return (
     <div className="bg-gray-50 min-h-screen font-sans">
       <header className="bg-white shadow-sm p-4 flex justify-between items-center relative">
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        <div className="flex items-center">
           <img 
             src="/favicon.png" 
             alt="YUM Network Logo" 
-            className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-md" 
+            className="h-16 w-16 sm:h-24 sm:w-24 object-contain rounded-md" 
             referrerPolicy="no-referrer" 
           />
-          <span className="text-base sm:text-xl font-black text-red-600 tracking-wider leading-none uppercase">Work Management</span>
         </div>
 
         {/* Desktop Navigation & User Info */}
