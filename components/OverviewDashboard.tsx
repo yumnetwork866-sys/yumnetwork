@@ -310,12 +310,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                                 <span className="text-sm font-medium">Không có dữ liệu thành viên trong khoảng thời gian này</span>
                             </div>
                         ) : activeMembers.length <= 4 ? (
-                            /* Grid layout if 4 or fewer users, no horizontal scroll, fully responsive */
+                            /* Grid layout if 4 or fewer users, no horizontal scroll, fully responsive (2x2 grid for 4 items) */
                             <div className={`grid gap-4 w-full ${
-                                activeMembers.length === 1 ? 'grid-cols-1 md:max-w-md mx-auto' :
-                                activeMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
-                                activeMembers.length === 3 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' :
-                                'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+                                activeMembers.length === 1 ? 'grid-cols-1 md:max-w-md mx-auto' : 'grid-cols-1 sm:grid-cols-2'
                             }`}>
                                 {activeMembers.map(({ user, chartData }) => (
                                     <div key={user.id} className="w-full">
