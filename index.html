@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Team Task Management Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'status-completed': '#d9ead3',
+            'status-inprogress': '#cfe2f3',
+            'status-pending': '#fce5cd',
+            'status-notstarted': '#efefef',
+            'priority-high': '#f4cccc',
+            'priority-medium': '#fff2cc',
+            'priority-low': '#d9ead3',
+            'group-ecom': '#fff2cc',
+            'group-setup': '#cfe2f3',
+          }
+        }
+      }
+    }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.2.1",
+    "@cloudflare/workers-types": "https://aistudiocdn.com/@cloudflare/workers-types@^4.20251004.0",
+    "@cloudflare/workers-types/": "https://aistudiocdn.com/@cloudflare/workers-types@^4.20251008.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

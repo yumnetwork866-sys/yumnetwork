@@ -1,0 +1,6 @@
+{
+  "name": "Remix: Quản Lý Công Việc YUM",
+  "description": "Một bảng điều khiển toàn diện để quản lý công việc của nhóm, bao gồm tổng quan với biểu đồ, danh sách công việc chi tiết và chế độ xem lịch. Nó bao gồm các quyền dựa trên vai trò cho quản trị viên và thành viên trong nhóm.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
