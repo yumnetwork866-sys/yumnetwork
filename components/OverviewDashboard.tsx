@@ -58,19 +58,43 @@ const StatusDonut: React.FC<{ title: string; percentage: number; color: string }
 const MemberDonutChart: React.FC<{ data: { name: Status; value: number }[], title: string }> = ({ data, title }) => {
     const total = data.reduce((acc, item) => acc + item.value, 0);
     return (
-        <div className="bg-white p-4 rounded-lg shadow flex flex-col items-center w-full h-full">
-            <h3 className="font-bold text-gray-700 mb-2">{title}</h3>
-            <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                    <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={70} fill="#8884d8" paddingAngle={2}>
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={STATUS_COLORS_OVERVIEW[entry.name]} />
-                        ))}
-                    </Pie>
-                    <Tooltip formatter={(value: number) => [`${((value / total) * 100).toFixed(1)}%`, `${value} công việc`]} />
-                    <Legend iconSize={10} wrapperStyle={{fontSize: '12px'}} />
-                </PieChart>
-            </ResponsiveContainer>
+        <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col items-center w-full h-full min-h-[250px] justify-between">
+            <h3 className="font-bold text-gray-700 mb-2 text-sm text-center truncate w-full" title={title}>{title}</h3>
+            <div className="w-full h-[150px] relative flex justify-center items-center">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie 
+                          data={data} 
+                          dataKey="value" 
+                          nameKey="name" 
+                          cx="50%" 
+                          cy="50%" 
+                          innerRadius={42} 
+                          outerRadius={58} 
+                          paddingAngle={3}
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={STATUS_COLORS_OVERVIEW[entry.name]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => [`${((value / total) * 100).toFixed(1)}%`, `${value} công việc`]} />
+                    </PieChart>
+                </ResponsiveContainer>
+                {/* Absolute center label displaying total count */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none mb-1">
+                    <span className="text-lg font-extrabold text-gray-800 line-height-[1]">{total}</span>
+                    <span className="text-[10px] text-gray-400 font-medium tracking-tight mt-[-2px]">công việc</span>
+                </div>
+            </div>
+            {/* Custom high-contrast mini-legend */}
+            <div className="flex flex-wrap justify-center gap-x-2 gap-y-1 mt-2 text-[10px] text-gray-500 font-medium">
+                {data.map((entry, index) => (
+                    <div key={index} className="flex items-center space-x-1">
+                        <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: STATUS_COLORS_OVERVIEW[entry.name] }}></span>
+                        <span className="truncate max-w-[80px]">{entry.name}: {entry.value}</span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -174,18 +198,26 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         }, {} as Record<Priority, number>);
     }, [filteredTasks]);
 
-    const tasksByAssignee = useMemo(() => {
-        return users.filter(u => u.role === 'member' || u.role === 'leader').map(user => {
-            const userTasks = filteredTasks.filter(task => task.assigneeId === user.id);
-            return {
-                user,
-                tasks: userTasks,
-                statusCounts: userTasks.reduce((acc, task) => {
+    const activeMembers = useMemo(() => {
+        return users
+            .filter(u => u.role === 'member' || u.role === 'leader')
+            .map(user => {
+                const userTasks = filteredTasks.filter(task => task.assigneeId === user.id);
+                const statusCounts = userTasks.reduce((acc, task) => {
                     acc[task.status] = (acc[task.status] || 0) + 1;
                     return acc;
-                }, {} as Record<Status, number>)
-            };
-        });
+                }, {} as Record<Status, number>);
+                
+                const chartData = (Object.keys(statusCounts) as Status[])
+                    .map(status => ({ name: status, value: statusCounts[status] }));
+                
+                return {
+                    user,
+                    chartData,
+                    totalCount: userTasks.length
+                };
+            })
+            .filter(item => item.chartData.length > 0);
     }, [filteredTasks, users]);
 
     const totalTasks = filteredTasks.length;
@@ -270,21 +302,51 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     </div>
                 </div>
         
-                {/* Right side: Member charts - now horizontally scrollable */}
-                <div className="lg:col-span-2">
-                    <div className="flex items-stretch overflow-x-auto space-x-6 pb-4">
-                        {tasksByAssignee.map(({ user, statusCounts }) => {
-                            const chartData = (Object.keys(statusCounts) as Status[]).map(status => ({ name: status, value: statusCounts[status] }));
-                            if (chartData.length === 0) return null;
-                            return (
-                                <div key={user.id} className="flex-shrink-0 w-[80%] sm:w-[48%]">
-                                    <MemberDonutChart 
-                                      title={user.name} 
-                                      data={chartData} 
-                                    />
+                {/* Right side: Member charts - Dynamic Grid / Scroll representation */}
+                <div className="lg:col-span-2 flex flex-col justify-between">
+                    <div className="flex-grow">
+                        {activeMembers.length === 0 ? (
+                            <div className="bg-white p-8 rounded-lg border border-gray-100 shadow-sm h-full flex flex-col items-center justify-center text-gray-400 min-h-[300px]">
+                                <span className="text-sm font-medium">Không có dữ liệu thành viên trong khoảng thời gian này</span>
+                            </div>
+                        ) : activeMembers.length <= 4 ? (
+                            /* Grid layout if 4 or fewer users, no horizontal scroll, fully responsive */
+                            <div className={`grid gap-4 w-full ${
+                                activeMembers.length === 1 ? 'grid-cols-1 md:max-w-md mx-auto' :
+                                activeMembers.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+                                activeMembers.length === 3 ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-3' :
+                                'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'
+                            }`}>
+                                {activeMembers.map(({ user, chartData }) => (
+                                    <div key={user.id} className="w-full">
+                                        <MemberDonutChart 
+                                          title={user.name} 
+                                          data={chartData} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            /* Horizontal scroll layout if more than 4 users */
+                            <div className="w-full">
+                                <div className="flex items-stretch overflow-x-auto space-x-4 pb-4 scroll-smooth scrollbar-thin snap-x snap-mandatory">
+                                    {activeMembers.map(({ user, chartData }) => (
+                                        <div 
+                                            key={user.id} 
+                                            className="flex-shrink-0 w-[80%] sm:w-[45%] md:w-[31%] xl:w-[23.5%] snap-start"
+                                        >
+                                            <MemberDonutChart 
+                                              title={user.name} 
+                                              data={chartData} 
+                                            />
+                                        </div>
+                                    ))}
                                 </div>
-                            );
-                        })}
+                                <div className="text-center mt-1 text-[11px] text-gray-400 font-medium select-none animate-pulse">
+                                    ← Vuốt ngang để xem thêm thành viên ({activeMembers.length}) →
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
