@@ -16,7 +16,7 @@ interface RankingData {
 const Ranking: React.FC<RankingProps> = ({ tasks, users }) => {
 
     const rankingData = useMemo((): RankingData[] => {
-        const memberUsers = users.filter(u => u.role === 'member');
+        const memberUsers = users.filter(u => u.role === 'member' || u.role === 'leader');
         if (!memberUsers.length || !tasks.length) return [];
 
         const relevantTasks = tasks.filter(task =>

@@ -361,7 +361,7 @@ const parseCsvToTasks = (csvText: string, users: User[], groups: Group[]): { new
     const errors: string[] = [];
     
     const groupMap = new Map(groups.map(g => [g.name.toLowerCase(), g.id]));
-    const userMap = new Map(users.filter(u => u.role === 'member').map(u => [u.name.toLowerCase(), u.id]));
+    const userMap = new Map(users.filter(u => u.role === 'member' || u.role === 'leader').map(u => [u.name.toLowerCase(), u.id]));
     
     const smartParseDate = (dateString: string): string | null => {
         if (!dateString || dateString.trim() === '') return null;
@@ -781,7 +781,7 @@ const TodoList: React.FC<TodoListProps> = ({
                     <label htmlFor="assignee-filter" className="block text-sm font-semibold text-gray-600 mb-1">Phân công</label>
                     <select id="assignee-filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full text-gray-800 bg-white border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 p-1.5 text-sm">
                         <option value="all">Tất cả</option>
-                        {users.filter(u => u.role === 'member').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        {users.filter(u => u.role === 'member' || u.role === 'leader').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </select>
                 </div>
                 <div>

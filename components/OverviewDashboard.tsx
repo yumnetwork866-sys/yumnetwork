@@ -175,7 +175,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     }, [filteredTasks]);
 
     const tasksByAssignee = useMemo(() => {
-        return users.filter(u => u.role === 'member').map(user => {
+        return users.filter(u => u.role === 'member' || u.role === 'leader').map(user => {
             const userTasks = filteredTasks.filter(task => task.assigneeId === user.id);
             return {
                 user,
