@@ -404,51 +404,6 @@ const UserManagement: React.FC<UserManagementProps> = ({
                 onUpdateGroup={onUpdateGroup}
                 onDeleteGroup={onDeleteGroup}
             />
-            {/* Database Schema Debug Viewer */}
-            <div className="mt-8 border-t pt-6">
-                <details className="bg-gray-50 rounded-lg p-4 cursor-pointer">
-                    <summary className="text-sm font-semibold text-gray-600 hover:text-gray-800">
-                        Xem cấu trúc Cơ sở dữ liệu (Database Schema)
-                    </summary>
-                    <div className="mt-4 text-xs font-mono bg-gray-905 text-green-400 p-4 rounded overflow-x-auto space-y-4 cursor-text">
-                        <DbSchemaFetcher />
-                    </div>
-                </details>
-            </div>
-        </div>
-    );
-};
-
-const DbSchemaFetcher: React.FC = () => {
-    const [schemas, setSchemas] = useState<{ users: string; tasks: string } | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch('/api/users?schema=true')
-            .then(res => res.json())
-            .then((data: any) => {
-                setSchemas(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                setError(err.message);
-                setLoading(false);
-            });
-    }, []);
-
-    if (loading) return <div className="text-gray-500">Đang truy vấn cấu trúc...</div>;
-    if (error) return <div className="text-red-400">Lỗi: {error}</div>;
-    return (
-        <div className="space-y-4">
-            <div>
-                <p className="text-yellow-400 font-bold mb-1">// Bảng users:</p>
-                <pre className="whitespace-pre-wrap">{schemas?.users || "Không tìm thấy bảng users"}</pre>
-            </div>
-            <div>
-                <p className="text-yellow-400 font-bold mb-1">// Bảng tasks:</p>
-                <pre className="whitespace-pre-wrap">{schemas?.tasks || "Không tìm thấy bảng tasks"}</pre>
-            </div>
         </div>
     );
 };
