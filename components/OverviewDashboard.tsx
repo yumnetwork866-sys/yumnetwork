@@ -324,13 +324,13 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                                 ))}
                             </div>
                         ) : (
-                            /* Horizontal scroll layout if more than 4 users */
+                            /* Horizontal scroll layout if 5 or more users: Displayed in 2 rows flowing horizontally (2 above, 2 below...) */
                             <div className="w-full">
-                                <div className="flex items-stretch overflow-x-auto space-x-4 pb-4 scroll-smooth scrollbar-thin snap-x snap-mandatory">
+                                <div className="grid grid-rows-2 grid-flow-col gap-4 overflow-x-auto pb-4 scroll-smooth scrollbar-thin snap-x snap-mandatory auto-cols-[85%] sm:auto-cols-[46%] md:auto-cols-[31%] xl:auto-cols-[23.5%]">
                                     {activeMembers.map(({ user, chartData }) => (
                                         <div 
                                             key={user.id} 
-                                            className="flex-shrink-0 w-[80%] sm:w-[45%] md:w-[31%] xl:w-[23.5%] snap-start"
+                                            className="snap-start w-full pr-1"
                                         >
                                             <MemberDonutChart 
                                               title={user.name} 
@@ -339,7 +339,7 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                                         </div>
                                     ))}
                                 </div>
-                                <div className="text-center mt-1 text-[11px] text-gray-400 font-medium select-none animate-pulse">
+                                <div className="text-center mt-2 text-[11px] text-gray-400 font-medium select-none animate-pulse">
                                     ← Vuốt ngang để xem thêm thành viên ({activeMembers.length}) →
                                 </div>
                             </div>
