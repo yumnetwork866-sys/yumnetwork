@@ -419,10 +419,7 @@ const App: React.FC = () => {
             className="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-md" 
             referrerPolicy="no-referrer" 
           />
-          <div className="flex flex-col">
-            <span className="text-base sm:text-xl font-black text-red-600 tracking-wider leading-none uppercase">YUM Network</span>
-            <span className="text-[9px] sm:text-[11px] text-gray-500 font-semibold tracking-wide uppercase leading-tight">Work Management</span>
-          </div>
+          <span className="text-base sm:text-xl font-black text-red-600 tracking-wider leading-none uppercase">Work Management</span>
         </div>
 
         {/* Desktop Navigation & User Info */}
