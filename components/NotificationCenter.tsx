@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, Check, Trash2, Calendar, PlusCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { Bell, Check, Trash2, Calendar, PlusCircle, AlertCircle, Sparkles, X } from 'lucide-react';
 import { Notification, User } from '../types';
 import { apiRequest } from '../api';
 
@@ -9,8 +9,14 @@ interface NotificationCenterProps {
   refreshTrigger?: number; // Can be updated by parent when a task is added
 }
 
+interface ToastNotification {
+  id: number;
+  notification: Notification;
+}
+
 export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentUser, refreshTrigger }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
@@ -86,7 +92,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     titleFlashIntervalRef.current = setInterval(() => {
       document.title = isOriginal 
         ? originalTitleRef.current 
-        : `🔔 [Bộ phận mới] ${message.length > 20 ? message.substring(0, 20) + '...' : message}`;
+        : `🔔 [Thông báo] ${message.length > 20 ? message.substring(0, 20) + '...' : message}`;
       isOriginal = !isOriginal;
     }, 1200);
   };
@@ -132,13 +138,33 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       startTitleFlashing(notif.message || notif.title);
     }
 
+    // Trigger floating in-app Toast notification for visual delight
+    if (hasLoadedInitial.current) {
+      const toastId = notif.id;
+      setToasts(prev => {
+        // Prevent duplicate toasts
+        if (prev.some(t => t.id === toastId)) return prev;
+        return [...prev, { id: toastId, notification: notif }];
+      });
+      // Auto-remove toast after 8 seconds
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== toastId));
+      }, 8000);
+    }
+
     if (!('Notification' in window)) return;
     if (window.Notification.permission === 'granted') {
       try {
         const bodyContent = notif.message;
+        // Aesthetic professional image URLs
+        const customIcon = notif.type === 'EOD_WARNING'
+          ? 'https://cdn-icons-png.flaticon.com/512/564/564619.png' // Alert triangle
+          : 'https://cdn-icons-png.flaticon.com/512/9063/9063196.png'; // Task list checklist
+          
         const n = new window.Notification(notif.title, {
           body: bodyContent,
-          icon: '/favicon.ico',
+          icon: customIcon,
+          badge: customIcon,
           tag: `task-${notif.taskId || notif.id}`, // groups or prevents redundant popups
           requireInteraction: true // keeps banner open until actioned
         });
@@ -493,6 +519,65 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Gorgeous In-App Toast HUDs Container */}
+      <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3 pointer-events-none max-w-sm w-full px-4 sm:px-0">
+        <AnimatePresence>
+          {toasts.map((toast) => {
+            const val = getNotificationIcon(toast.notification.type);
+            return (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, x: 200, scale: 0.9, y: -10 }}
+                animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
+                exit={{ opacity: 0, x: 100, scale: 0.85, transition: { duration: 0.2 } }}
+                className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-150/90 shadow-2xl rounded-2xl p-4 flex gap-3.5 items-start relative overflow-hidden group hover:shadow-3xl transition-all cursor-pointer ring-1 ring-black/5"
+                onClick={() => {
+                  setIsOpen(true);
+                  setToasts(prev => prev.filter(t => t.id !== toast.id));
+                }}
+              >
+                {/* Visual side accent border */}
+                <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${
+                  toast.notification.type === 'EOD_WARNING' ? 'bg-rose-500' : 'bg-emerald-500'
+                }`} />
+                
+                {/* Responsive colored badge icon */}
+                <div className={`p-2 rounded-xl flex-shrink-0 ml-1.5 ${val.bg}`}>
+                  {val.icon}
+                </div>
+                
+                {/* Notification body details */}
+                <div className="flex-grow min-w-0 pr-4">
+                  <h4 className="text-xs font-bold text-gray-900 mb-0.5 flex items-center gap-1.5">
+                    {toast.notification.title}
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                  </h4>
+                  <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                    {toast.notification.message}
+                  </p>
+                  <span className="text-[9px] text-gray-450 mt-1 block font-semibold text-blue-500">
+                    Nhấp để mở chi tiết • Vừa mới nhận
+                  </span>
+                </div>
+
+                {/* Dismiss X button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToasts(prev => prev.filter(t => t.id !== toast.id));
+                  }}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none flex-shrink-0 self-start -mt-1 -mr-1"
+                  title="Đóng thông báo"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
