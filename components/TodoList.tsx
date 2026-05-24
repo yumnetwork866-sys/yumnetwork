@@ -88,6 +88,8 @@ const TaskRow: React.FC<TaskRowProps> = ({
   const [currentNotes, setCurrentNotes] = useState(task.notes);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const isLongNotes = task.notes && (task.notes.length > 180 || task.notes.split('\n').length > 3);
 
   useEffect(() => {
     if (isEditingNotes) {
@@ -217,9 +219,8 @@ const TaskRow: React.FC<TaskRowProps> = ({
           )}
         </td>
         <td 
-          className={`p-3 text-sm text-gray-500 align-top ${canEditNotes && !isEditingNotes ? 'hover:bg-gray-100 cursor-pointer' : ''}`}
+          className={`p-3 text-sm text-gray-500 align-top max-w-sm ${canEditNotes && !isEditingNotes ? 'hover:bg-gray-100/60 cursor-pointer' : ''}`}
           onClick={() => {if (canEditNotes && !isEditingNotes) setIsEditingNotes(true)}}
-          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         >
           {isEditingNotes && canEditNotes ? (
               <textarea
@@ -237,11 +238,48 @@ const TaskRow: React.FC<TaskRowProps> = ({
                           setIsEditingNotes(false);
                       }
                   }}
-                  className="w-full p-2 border rounded-md shadow-sm text-sm"
+                  className="w-full p-2 border rounded-md shadow-sm text-sm text-gray-800"
                   rows={4}
               />
           ) : (
-              task.notes || (canEditNotes ? <span className="text-gray-400 italic">Thêm ghi chú...</span> : '')
+              task.notes ? (
+                <div className="flex flex-col gap-1.5 align-top">
+                  <div 
+                    className={`text-gray-700 text-xs leading-relaxed transition-all duration-300 ${
+                      !isNotesExpanded ? 'line-clamp-2' : ''
+                    }`}
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  >
+                    {task.notes}
+                  </div>
+                  {isLongNotes && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsNotesExpanded(!isNotesExpanded);
+                      }}
+                      className="flex items-center gap-1 self-start text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100/90 py-0.5 px-2 rounded-full border border-blue-100 transition mt-1 select-none focus:outline-none"
+                    >
+                      <span>{isNotesExpanded ? 'Thu gọn' : 'Xem chi tiết'}</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        className={`transform transition-transform duration-250 ${isNotesExpanded ? 'rotate-180' : ''}`}
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ) : (
+                canEditNotes ? <span className="text-gray-400 italic text-xs">Thêm ghi chú...</span> : ''
+              )
           )}
         </td>
         {canManageSome && (
