@@ -71,6 +71,9 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
             }
 
             const localDate = url.searchParams.get('localDate') || new Date().toISOString().split('T')[0];
+            const localHourStr = url.searchParams.get('localHour');
+            const localHour = localHourStr ? parseInt(localHourStr, 10) : null;
+            const testEod = url.searchParams.get('testEod');
 
             // 2. Trigger dynamically EOD Warnings (Hạn chót & chưa hoàn thành)
             try {
@@ -110,6 +113,132 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
                 }
             } catch (err) {
                 console.error("Failed to check or insert EOD warnings:", err);
+            }
+
+            // 2b. Trigger daily 5:00 PM alerts for members and leaders
+            let hourCheck = localHour;
+            let datePattern = `${localDate}%`;
+            
+            if (testEod === 'true') {
+                hourCheck = 17;
+                // For simulated testing, use a pattern that won't match existing real daily notifications
+                datePattern = `${localDate}-test-never-match%`;
+            }
+
+            if (hourCheck !== null && hourCheck >= 17) {
+                try {
+                    // Fetch user info first
+                    const userStmt = env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId);
+                    const user = await userStmt.first<any>();
+
+                    if (user) {
+                        // A. Check and trigger 'EOD_WARNING_DAILY' for current user if they have slow/incomplete tasks
+                        const existingDailyStmt = env.DB.prepare(`
+                            SELECT id FROM notifications 
+                            WHERE userId = ? 
+                              AND type = 'EOD_WARNING_DAILY' 
+                              AND createdAt LIKE ?
+                        `).bind(userId, datePattern);
+                        const existingDaily = await existingDailyStmt.first();
+
+                        if (!existingDaily) {
+                            const incompleteStmt = env.DB.prepare(`
+                                SELECT * FROM tasks 
+                                WHERE assigneeId = ? 
+                                  AND status != 'Hoàn thành' 
+                                  AND deadline <= ?
+                            `).bind(userId, localDate);
+                            const { results: myTasks } = await incompleteStmt.all<any>();
+
+                            if (myTasks && myTasks.length > 0) {
+                                const title = '⏰ Cảnh báo hạn chót (5h chiều)';
+                                const taskNamesStr = myTasks.map((t: any) => `"${t.name}"`).join(', ');
+                                const message = `Bạn hiện có ${myTasks.length} công việc chưa hoàn thành hôm nay: ${taskNamesStr}. Vui lòng tập trung hoàn thành sớm!`;
+                                const createdAt = new Date().toISOString();
+
+                                await env.DB.prepare(`
+                                    INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
+                                    VALUES (?, 'EOD_WARNING_DAILY', ?, ?, 0, NULL, ?)
+                                `).bind(userId, title, message, createdAt).run();
+                            }
+                        }
+
+                        // B. Check and trigger 'LEADER_WARNING_DAILY' if the user is a leader or admin
+                        if (user.role === 'leader' || user.role === 'admin') {
+                            const existingLeaderDailyStmt = env.DB.prepare(`
+                                SELECT id FROM notifications 
+                                WHERE userId = ? 
+                                  AND type = 'LEADER_WARNING_DAILY' 
+                                  AND createdAt LIKE ?
+                        `).bind(userId, datePattern);
+                            const existingLeaderDaily = await existingLeaderDailyStmt.first();
+
+                            if (!existingLeaderDaily) {
+                                // Gather managed group IDs
+                                let groupIds: number[] = [];
+                                if (user.groupId !== null && user.groupId !== undefined) {
+                                    groupIds.push(Number(user.groupId));
+                                }
+                                if (typeof user.managedGroupIds === 'string' && user.managedGroupIds.trim() !== '') {
+                                    try {
+                                        const parsed: number[] = JSON.parse(user.managedGroupIds);
+                                        if (Array.isArray(parsed)) {
+                                            parsed.forEach(id => {
+                                                if (id !== null && !groupIds.includes(Number(id))) {
+                                                    groupIds.push(Number(id));
+                                                }
+                                            });
+                                        }
+                                    } catch (err) {
+                                        console.error("Failed to parse leader managedGroupIds:", err);
+                                    }
+                                }
+
+                                if (groupIds.length > 0) {
+                                    const placeholders = groupIds.map(() => '?').join(',');
+                                    const leaderQuery = `
+                                        SELECT tasks.*, users.name as assigneeName 
+                                        FROM tasks 
+                                        LEFT JOIN users ON tasks.assigneeId = users.id 
+                                        WHERE tasks.groupId IN (${placeholders}) 
+                                          AND tasks.status != 'Hoàn thành' 
+                                          AND tasks.deadline <= ?
+                                    `;
+                                    
+                                    const bindParams = [...groupIds, localDate];
+                                    const { results: teamPendingTasks } = await env.DB.prepare(leaderQuery).bind(...bindParams).all<any>();
+
+                                    if (teamPendingTasks && teamPendingTasks.length > 0) {
+                                        // Group tasks by assignee name
+                                        const groupedByAssignee: { [key: string]: string[] } = {};
+                                        teamPendingTasks.forEach((task: any) => {
+                                            const name = task.assigneeName || 'Chưa phân công';
+                                            if (!groupedByAssignee[name]) {
+                                                groupedByAssignee[name] = [];
+                                            }
+                                            groupedByAssignee[name].push(`"${task.name}" (Hạn: ${task.deadline})`);
+                                        });
+
+                                        const delayDetails = Object.entries(groupedByAssignee)
+                                            .map(([name, tasks]) => `- ${name}: ${tasks.join(', ')}`)
+                                            .join('\n');
+
+                                        const title = '📊 Báo cáo chậm tiến độ (5h chiều)';
+                                        const message = `Báo cáo nhóm: Có ${teamPendingTasks.length} công việc chưa hoàn thành trễ hạn ngày hôm nay:\n${delayDetails}\nVui lòng kiểm tra và hỗ trợ thành viên kịp thời!`;
+                                        const createdAt = new Date().toISOString();
+
+                                        await env.DB.prepare(`
+                                            INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
+                                            VALUES (?, 'LEADER_WARNING_DAILY', ?, ?, 0, NULL, ?)
+                                        `).bind(userId, title, message, createdAt).run();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (err: any) {
+                    console.error("Failed to run 17:00 EOD notifications check:", err.message);
+                }
             }
 
             // 3. Fetch notifications for user

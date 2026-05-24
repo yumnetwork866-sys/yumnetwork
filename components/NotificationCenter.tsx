@@ -157,9 +157,11 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       try {
         const bodyContent = notif.message;
         // Aesthetic professional image URLs
-        const customIcon = notif.type === 'EOD_WARNING'
+        const customIcon = (notif.type === 'EOD_WARNING' || notif.type === 'EOD_WARNING_DAILY')
           ? 'https://cdn-icons-png.flaticon.com/512/564/564619.png' // Alert triangle
-          : 'https://cdn-icons-png.flaticon.com/512/9063/9063196.png'; // Task list checklist
+          : notif.type === 'LEADER_WARNING_DAILY'
+            ? 'https://cdn-icons-png.flaticon.com/512/3094/3094833.png' // Chart/Calendar reporting icon
+            : 'https://cdn-icons-png.flaticon.com/512/9063/9063196.png'; // Task list checklist
           
         const n = new window.Notification(notif.title, {
           body: bodyContent,
@@ -186,9 +188,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     try {
       setLoading(true);
       const todayStr = new Date().toISOString().split('T')[0];
-      // Pass localDate to assist backend with timezone-accurate end-of-day checks
+      const localHour = new Date().getHours();
+      // Pass localDate and localHour to assist backend with timezone-accurate end-of-day checks
       const data = await apiRequest<Notification[]>(
-        `/api/notifications?userId=${currentUser.id}&localDate=${todayStr}`
+        `/api/notifications?userId=${currentUser.id}&localDate=${todayStr}&localHour=${localHour}`
       );
       const fetched = data || [];
 
@@ -333,13 +336,46 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     }
   };
 
+  const simulateEodCheck = async () => {
+    if (!currentUser) return;
+    try {
+      setLoading(true);
+      const todayStr = new Date().toISOString().split('T')[0];
+      // Trigger EOD checks by mocking the time as 17:00 and appending the simulation flag
+      const data = await apiRequest<Notification[]>(
+        `/api/notifications?userId=${currentUser.id}&localDate=${todayStr}&localHour=17&testEod=true`
+      );
+      const fetched = data || [];
+      if (fetched.length > 0) {
+        // Trigger browser notification for any new ones
+        fetched.forEach(item => {
+          if (Number(item.isRead) === 0 && !knownNotificationIds.current.has(item.id)) {
+            triggerBrowserNotification(item);
+          }
+        });
+        fetched.forEach(item => knownNotificationIds.current.add(item.id));
+        setNotifications(fetched);
+      }
+    } catch (err) {
+      console.error('Error simulating EOD check:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Helper to get visual indicator icon & color based on notification type
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'EOD_WARNING':
+      case 'EOD_WARNING_DAILY':
         return {
-          icon: <AlertCircle className="w-4 h-4 text-rose-500" />,
+          icon: <AlertCircle className="w-4 h-4 text-rose-500 animate-pulse" />,
           bg: 'bg-rose-50 border border-rose-100',
+        };
+      case 'LEADER_WARNING_DAILY':
+        return {
+          icon: <Calendar className="w-4 h-4 text-amber-500 animate-bounce" />,
+          bg: 'bg-amber-50 border border-amber-100',
         };
       case 'NEW_TASK':
         return {
@@ -399,15 +435,26 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                   </span>
                 )}
               </div>
-              {isEnabled && unreadCount > 0 && (
-                <button
-                  onClick={handleMarkAllRead}
-                  className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors focus:outline-none"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  Đã đọc tất cả
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {(currentUser.role === 'leader' || currentUser.role === 'admin') && (
+                  <button
+                    onClick={simulateEodCheck}
+                    className="text-[10px] bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded px-1.5 py-0.5 font-bold transition-all flex items-center gap-0.5 cursor-pointer"
+                    title="Giả lập báo cáo chậm tiến độ 17h chiều để kiểm tra"
+                  >
+                    ⚡ Thử 17h
+                  </button>
+                )}
+                {isEnabled && unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors focus:outline-none"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    Đã đọc tất cả
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* In-app Notification Toggle Panel */}
@@ -516,7 +563,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                             {formatTime(notification.createdAt)}
                           </span>
                         </div>
-                        <p className={`text-xs leading-relaxed text-gray-600 ${Number(notification.isRead) === 0 ? 'font-medium' : ''}`}>
+                        <p className={`text-xs leading-relaxed text-gray-600 whitespace-pre-line ${Number(notification.isRead) === 0 ? 'font-medium' : ''}`}>
                           {notification.message}
                         </p>
                       </div>
@@ -560,24 +607,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3 pointer-events-none max-w-sm w-full px-4 sm:px-0">
         <AnimatePresence>
           {toasts.map((toast) => {
-            const isEod = toast.notification.type === 'EOD_WARNING';
+            const isEod = toast.notification.type === 'EOD_WARNING' || toast.notification.type === 'EOD_WARNING_DAILY';
+            const isLeader = toast.notification.type === 'LEADER_WARNING_DAILY';
             const isNew = toast.notification.type === 'NEW_TASK';
             
             // Premium gradients and configurations matching the modern clean brand style
             const accentColor = isEod 
               ? 'from-rose-500 to-red-650' 
-              : isNew 
-                ? 'from-emerald-400 to-teal-600' 
-                : 'from-blue-500 to-indigo-650';
+              : isLeader 
+                ? 'from-amber-400 to-orange-550'
+                : isNew 
+                  ? 'from-emerald-400 to-teal-600' 
+                  : 'from-blue-500 to-indigo-650';
                 
             const cardBg = 'bg-slate-900/95 backdrop-blur-xl border border-slate-800/80 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.35)]';
             const titleColor = 'text-white font-bold';
             const msgColor = 'text-slate-200';
             const badgeIconBg = isEod 
               ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' 
-              : isNew 
-                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-                : 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
+              : isLeader
+                ? 'bg-amber-500/10 border border-amber-500/20 text-amber-500'
+                : isNew 
+                  ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                  : 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
 
             return (
               <motion.div
@@ -609,6 +661,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                 <div className={`p-2.5 rounded-xl flex-shrink-0 flex items-center justify-center ${badgeIconBg}`}>
                   {isEod ? (
                     <AlertCircle className="w-4 h-4 animate-pulse" />
+                  ) : isLeader ? (
+                    <Calendar className="w-4 h-4 animate-bounce" />
                   ) : isNew ? (
                     <PlusCircle className="w-4 h-4" />
                   ) : (
@@ -625,7 +679,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
                     </span>
                   </h4>
-                  <p className={`text-xs leading-relaxed ${msgColor} font-medium`}>
+                  <p className={`text-xs leading-relaxed ${msgColor} font-medium whitespace-pre-line`}>
                     {toast.notification.message}
                   </p>
                   <span className="text-[10px] font-bold mt-2 pb-0.5 block text-sky-400 tracking-wider uppercase opacity-90 group-hover:opacity-100 transition-opacity">
