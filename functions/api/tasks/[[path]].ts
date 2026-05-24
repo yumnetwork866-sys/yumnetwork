@@ -78,10 +78,46 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
     switch (request.method) {
         case 'GET': {
              const stmt = env.DB.prepare('SELECT * FROM tasks ORDER BY deadline DESC, id DESC');
-             const { results } = await stmt.all<Task>();
-             return new Response(JSON.stringify(results), {
-                headers: { 'Content-Type': 'application/json' },
-            });
+             const { results: tasks } = await stmt.all<Task>();
+             
+             // Setup subtasks table if not exists, and fetch all subtasks
+             let subtasks: any[] = [];
+             try {
+                 await env.DB.prepare(`
+                     CREATE TABLE IF NOT EXISTS subtasks (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         taskId INTEGER NOT NULL,
+                         name TEXT NOT NULL,
+                         isCompleted INTEGER DEFAULT 0,
+                         FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE
+                     )
+                 `).run();
+                 
+                 const subStmt = env.DB.prepare('SELECT * FROM subtasks ORDER BY id ASC');
+                 const { results } = await subStmt.all<any>();
+                 subtasks = results || [];
+             } catch (e) {
+                 console.error("No subtasks table or failed to fetch subtasks:", e);
+             }
+
+             const tasksWithSubtasks = tasks.map(task => {
+                 const taskSubtasks = subtasks
+                     .filter(sub => sub.taskId === task.id)
+                     .map(sub => ({
+                         id: sub.id,
+                         taskId: sub.taskId,
+                         name: sub.name,
+                         isCompleted: sub.isCompleted === 1
+                     }));
+                 return {
+                     ...task,
+                     subtasks: taskSubtasks
+                 };
+             });
+
+             return new Response(JSON.stringify(tasksWithSubtasks), {
+                 headers: { 'Content-Type': 'application/json' },
+             });
         }
         case 'POST': {
             const body = await request.json();

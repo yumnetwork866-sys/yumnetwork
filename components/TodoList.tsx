@@ -57,9 +57,25 @@ interface TaskRowProps {
   onEdit: (task: Task) => void;
   isSelected: boolean;
   onSelect: (id: number) => void;
+  onAddSubtask?: (taskId: number, name: string) => Promise<void>;
+  onToggleSubtask?: (taskId: number, subtaskId: number, isCompleted: boolean) => Promise<void>;
+  onDeleteSubtask?: (taskId: number, subtaskId: number) => Promise<void>;
 }
 
-const TaskRow: React.FC<TaskRowProps> = ({ task, users, groups, currentUser, onUpdateTask, onDeleteTask, onEdit, isSelected, onSelect }) => {
+const TaskRow: React.FC<TaskRowProps> = ({ 
+  task, 
+  users, 
+  groups, 
+  currentUser, 
+  onUpdateTask, 
+  onDeleteTask, 
+  onEdit, 
+  isSelected, 
+  onSelect,
+  onAddSubtask,
+  onToggleSubtask,
+  onDeleteSubtask
+}) => {
   const assignee = users.find(u => u.id === task.assigneeId);
   const group = groups.find(g => g.id === task.groupId);
   const isAdmin = currentUser.role === 'admin';
@@ -71,6 +87,7 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, users, groups, currentUser, onU
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [currentNotes, setCurrentNotes] = useState(task.notes);
   const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (isEditingNotes) {
@@ -99,8 +116,8 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, users, groups, currentUser, onU
 
   const handleNotesSave = () => {
     if (task.notes !== currentNotes) {
-        const updatedTask: Task = { ...task, notes: currentNotes.trim() };
-        onUpdateTask(updatedTask);
+         const updatedTask: Task = { ...task, notes: currentNotes.trim() };
+         onUpdateTask(updatedTask);
     }
     setIsEditingNotes(false);
   };
@@ -108,80 +125,243 @@ const TaskRow: React.FC<TaskRowProps> = ({ task, users, groups, currentUser, onU
   const canEditNotes = isManageable || currentUser.id === task.assigneeId;
 
   return (
-    <tr className={`border-b hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
-      {canManageSome && (
-        <td className="p-3 align-top">
-            {isManageable && (
-                <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    checked={isSelected}
-                    onChange={() => onSelect(task.id)}
-                />
+    <>
+      <tr className={`border-b hover:bg-gray-50 ${isSelected ? 'bg-blue-50' : ''}`}>
+        {canManageSome && (
+          <td className="p-3 align-top">
+              {isManageable && (
+                  <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      checked={isSelected}
+                      onChange={() => onSelect(task.id)}
+                  />
+              )}
+          </td>
+        )}
+        <td className={`p-3 text-sm align-top ${task.status === Status.Completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-start gap-2">
+              <button 
+                type="button" 
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="p-1 mt-0.5 rounded hover:bg-gray-200 text-gray-500 transition-colors focus:outline-none"
+                title="Xem việc nhỏ"
+              >
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="14" 
+                  height="14" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2.5" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-90 text-blue-600' : ''}`}
+                >
+                  <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+              </button>
+              <span className="font-semibold">{task.name}</span>
+            </div>
+            
+            {task.subtasks && task.subtasks.length > 0 && (
+              <div className="flex items-center gap-2 mt-1 ml-7">
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200/80 transition-all font-semibold py-0.5 px-1.5 rounded-full flex items-center gap-1"
+                >
+                  Việc nhỏ: {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
+                </button>
+                <div className="w-16 h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 transition-all duration-350"
+                    style={{ 
+                      width: `${(task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100}%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
             )}
+            
+            {(!task.subtasks || task.subtasks.length === 0) && isManageable && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-[10px] text-gray-400 font-medium hover:text-blue-500 hover:underline self-start mt-0.5 ml-7 flex items-center gap-0.5"
+              >
+                + Thêm việc nhỏ
+              </button>
+            )}
+          </div>
         </td>
-      )}
-      <td className={`p-3 text-sm align-top ${task.status === Status.Completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>{task.name}</td>
-      <td className="p-3 text-sm text-gray-700 whitespace-nowrap align-top">{formatDate(task.deadline)}</td>
-      <td className="p-3 whitespace-nowrap align-top"><Badge colorClass={group?.colorClass ?? 'bg-gray-200'}>{group?.name ?? 'N/A'}</Badge></td>
-      <td className="p-3 text-sm text-gray-700 whitespace-nowrap align-top">{assignee?.name}</td>
-      <td className="p-3 whitespace-nowrap align-top">
-        {isManageable ? (
-            <select value={task.priority} onChange={handlePriorityChange} className={`p-1.5 border rounded-md w-full text-xs ${getPriorityColor(task.priority)}`}>
-                {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
-        ) : (
-            <Badge colorClass={getPriorityColor(task.priority)}>{task.priority}</Badge>
-        )}
-      </td>
-      <td className="p-3 align-top">
-        {isManageable || currentUser.id === task.assigneeId ? (
-          <select value={task.status} onChange={handleStatusChange} className={`p-1.5 border rounded-md w-full text-xs ${getStatusColor(task.status)}`}>
-            {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        ) : (
-          <Badge colorClass={getStatusColor(task.status)}>{task.status}</Badge>
-        )}
-      </td>
-      <td 
-        className={`p-3 text-sm text-gray-500 align-top ${canEditNotes && !isEditingNotes ? 'hover:bg-gray-100 cursor-pointer' : ''}`}
-        onClick={() => {if (canEditNotes && !isEditingNotes) setIsEditingNotes(true)}}
-        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-      >
-        {isEditingNotes && canEditNotes ? (
-            <textarea
-                ref={notesTextareaRef}
-                value={currentNotes}
-                onChange={(e) => setCurrentNotes(e.target.value)}
-                onBlur={handleNotesSave}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleNotesSave();
-                    }
-                    if (e.key === 'Escape') {
-                        setCurrentNotes(task.notes);
-                        setIsEditingNotes(false);
-                    }
-                }}
-                className="w-full p-2 border rounded-md shadow-sm text-sm"
-                rows={4}
-            />
-        ) : (
-            task.notes || (canEditNotes ? <span className="text-gray-400 italic">Thêm ghi chú...</span> : '')
-        )}
-      </td>
-      {canManageSome && (
-        <td className="p-3 text-right whitespace-nowrap align-top">
-          {isManageable && (
-            <>
-              <button onClick={() => onEdit(task)} className="text-blue-500 hover:text-blue-700 mr-2 text-xs">Sửa</button>
-              <button onClick={() => onDeleteTask(task.id)} className="text-red-500 hover:text-red-700 text-xs">Xóa</button>
-            </>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap align-top">{formatDate(task.deadline)}</td>
+        <td className="p-3 whitespace-nowrap align-top"><Badge colorClass={group?.colorClass ?? 'bg-gray-200'}>{group?.name ?? 'N/A'}</Badge></td>
+        <td className="p-3 text-sm text-gray-700 whitespace-nowrap align-top">{assignee?.name}</td>
+        <td className="p-3 whitespace-nowrap align-top">
+          {isManageable ? (
+              <select value={task.priority} onChange={handlePriorityChange} className={`p-1.5 border rounded-md w-full text-xs ${getPriorityColor(task.priority)}`}>
+                  {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+          ) : (
+              <Badge colorClass={getPriorityColor(task.priority)}>{task.priority}</Badge>
           )}
         </td>
+        <td className="p-3 align-top">
+          {isManageable || currentUser.id === task.assigneeId ? (
+            <select value={task.status} onChange={handleStatusChange} className={`p-1.5 border rounded-md w-full text-xs ${getStatusColor(task.status)}`}>
+              {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          ) : (
+            <Badge colorClass={getStatusColor(task.status)}>{task.status}</Badge>
+          )}
+        </td>
+        <td 
+          className={`p-3 text-sm text-gray-500 align-top ${canEditNotes && !isEditingNotes ? 'hover:bg-gray-100 cursor-pointer' : ''}`}
+          onClick={() => {if (canEditNotes && !isEditingNotes) setIsEditingNotes(true)}}
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        >
+          {isEditingNotes && canEditNotes ? (
+              <textarea
+                  ref={notesTextareaRef}
+                  value={currentNotes}
+                  onChange={(e) => setCurrentNotes(e.target.value)}
+                  onBlur={handleNotesSave}
+                  onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleNotesSave();
+                      }
+                      if (e.key === 'Escape') {
+                          setCurrentNotes(task.notes);
+                          setIsEditingNotes(false);
+                      }
+                  }}
+                  className="w-full p-2 border rounded-md shadow-sm text-sm"
+                  rows={4}
+              />
+          ) : (
+              task.notes || (canEditNotes ? <span className="text-gray-400 italic">Thêm ghi chú...</span> : '')
+          )}
+        </td>
+        {canManageSome && (
+          <td className="p-3 text-right whitespace-nowrap align-top">
+            {isManageable && (
+              <>
+                <button onClick={() => onEdit(task)} className="text-blue-500 hover:text-blue-700 mr-2 text-xs">Sửa</button>
+                <button onClick={() => onDeleteTask(task.id)} className="text-red-500 hover:text-red-700 text-xs">Xóa</button>
+              </>
+            )}
+          </td>
+        )}
+      </tr>
+      {isExpanded && (
+        <tr className="bg-slate-50/40">
+          <td colSpan={canManageSome ? 9 : 7} className="p-4 bg-slate-50/20 border-t border-b border-dashed border-gray-250">
+            <div className="pl-6 max-w-2xl">
+              <div className="bg-white border text-gray-800 p-4 rounded-xl shadow-sm border-gray-200/70">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b">
+                  <h4 className="text-xs font-bold text-gray-600 uppercase tracking-widest flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-blue-500">
+                      <line x1="8" y1="6" x2="21" y2="6"></line>
+                      <line x1="8" y1="12" x2="21" y2="12"></line>
+                      <line x1="8" y1="18" x2="21" y2="18"></line>
+                      <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                      <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                      <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                    Danh sách việc nhỏ ({task.subtasks?.length || 0})
+                  </h4>
+                  {task.subtasks && task.subtasks.length > 0 && (
+                    <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full py-0.5 px-2">
+                      Đạt: {Math.round((task.subtasks.filter(s => s.isCompleted).length / task.subtasks.length) * 100)}%
+                    </span>
+                  )}
+                </div>
+
+                {/* Subtask list */}
+                {task.subtasks && task.subtasks.length > 0 ? (
+                  <div className="space-y-2 mb-4 max-h-60 overflow-y-auto">
+                    {task.subtasks.map(subtask => (
+                      <div 
+                        key={subtask.id} 
+                        className="flex items-center justify-between group py-2 px-2.5 hover:bg-slate-50/80 rounded-lg transition-colors border border-gray-100"
+                      >
+                        <label className="flex items-center gap-3 cursor-pointer select-none flex-grow">
+                          <input
+                            type="checkbox"
+                            checked={subtask.isCompleted}
+                            disabled={!isManageable}
+                            onChange={(e) => onToggleSubtask?.(task.id, subtask.id, e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-350 text-blue-600 focus:ring-blue-500 disabled:opacity-60 cursor-pointer"
+                          />
+                          <span className={`text-[13px] ${subtask.isCompleted ? 'line-through text-gray-400 font-normal' : 'text-gray-700 font-medium'}`}>
+                            {subtask.name}
+                          </span>
+                        </label>
+                        {isManageable && (
+                          <button
+                            onClick={() => {
+                              if (confirm('Bạn có chắc chắn muốn xóa đầu việc nhỏ này?')) {
+                                onDeleteSubtask?.(task.id, subtask.id);
+                              }
+                            }}
+                            className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs p-1 rounded hover:bg-red-50 transition"
+                            title="Xóa việc nhỏ"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-gray-400 italic mb-4 py-3 text-center bg-gray-50/50 border border-dashed rounded-lg">
+                    Chưa có công việc nhỏ nào được thêm cho đầu việc lớn này.
+                  </div>
+                )}
+
+                {/* Add Subtask Input Form */}
+                {isManageable && (
+                  <form 
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const input = form.elements.namedItem('subtaskName') as HTMLInputElement;
+                      const name = input.value.trim();
+                      if (!name) return;
+                      
+                      if (onAddSubtask) {
+                        await onAddSubtask(task.id, name);
+                        input.value = '';
+                      }
+                    }}
+                    className="flex items-center gap-2 mt-2"
+                  >
+                    <input
+                      type="text"
+                      name="subtaskName"
+                      placeholder="Nhập tên đầu việc nhỏ mới..."
+                      className="flex-grow text-[13px] border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-white"
+                      autoComplete="off"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition shadow-sm"
+                    >
+                      Thêm
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          </td>
+        </tr>
       )}
-    </tr>
+    </>
   );
 };
 
@@ -339,6 +519,9 @@ interface TodoListProps {
   setPriorityFilter?: React.Dispatch<React.SetStateAction<string>>;
   statusFilter?: string;
   setStatusFilter?: React.Dispatch<React.SetStateAction<string>>;
+  onAddSubtask?: (taskId: number, name: string) => Promise<void>;
+  onToggleSubtask?: (taskId: number, subtaskId: number, isCompleted: boolean) => Promise<void>;
+  onDeleteSubtask?: (taskId: number, subtaskId: number) => Promise<void>;
 }
 
 const TASKS_PER_PAGE = 40;
@@ -491,6 +674,9 @@ const TodoList: React.FC<TodoListProps> = ({
     setPriorityFilter: controlledSetPriorityFilter,
     statusFilter: controlledStatusFilter,
     setStatusFilter: controlledSetStatusFilter,
+    onAddSubtask,
+    onToggleSubtask,
+    onDeleteSubtask,
 }) => {
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
@@ -837,6 +1023,9 @@ const TodoList: React.FC<TodoListProps> = ({
                 onEdit={() => handleOpenTaskModal(task)}
                 isSelected={selectedTaskIds.includes(task.id)}
                 onSelect={handleSelectTask}
+                onAddSubtask={onAddSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
               />
             ))}
           </tbody>

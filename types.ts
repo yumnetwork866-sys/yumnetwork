@@ -28,6 +28,13 @@ export interface User {
   managedGroupIds?: number[];
 }
 
+export interface Subtask {
+  id: number;
+  taskId: number;
+  name: string;
+  isCompleted: boolean;
+}
+
 export interface Task {
   id: number;
   name: string;
@@ -37,6 +44,7 @@ export interface Task {
   priority: Priority;
   status: Status;
   notes: string;
+  subtasks?: Subtask[];
 }
 
 export type View = 'Tổng quan' | 'Danh sách công việc' | 'Lịch' | 'Người dùng';

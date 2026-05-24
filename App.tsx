@@ -265,6 +265,64 @@ const App: React.FC = () => {
     } catch (error) { console.error("Không thể xóa nhiều công việc:", error); }
   };
 
+  const handleAddSubtask = async (taskId: number, name: string) => {
+    try {
+      const result = await apiRequest<any>('/api/subtasks', 'POST', { taskId, name });
+      if (result) {
+        setTasks(prevTasks => prevTasks.map(task => {
+          if (task.id === taskId) {
+            const subtasks = task.subtasks || [];
+            return {
+              ...task,
+              subtasks: [...subtasks, result]
+            };
+          }
+          return task;
+        }));
+      }
+    } catch (error) {
+      console.error("Không thể thêm công việc nhỏ:", error);
+    }
+  };
+
+  const handleToggleSubtask = async (taskId: number, subtaskId: number, isCompleted: boolean) => {
+    try {
+      const result = await apiRequest<any>(`/api/subtasks/${subtaskId}`, 'PUT', { isCompleted });
+      if (result) {
+        setTasks(prevTasks => prevTasks.map(task => {
+          if (task.id === taskId) {
+            const subtasks = task.subtasks || [];
+            return {
+              ...task,
+              subtasks: subtasks.map(sub => sub.id === subtaskId ? result : sub)
+            };
+          }
+          return task;
+        }));
+      }
+    } catch (error) {
+      console.error("Không thể cập nhật trạng thái công việc nhỏ:", error);
+    }
+  };
+
+  const handleDeleteSubtask = async (taskId: number, subtaskId: number) => {
+    try {
+      await apiRequest(`/api/subtasks/${subtaskId}`, 'DELETE');
+      setTasks(prevTasks => prevTasks.map(task => {
+        if (task.id === taskId) {
+          const subtasks = task.subtasks || [];
+          return {
+            ...task,
+            subtasks: subtasks.filter(sub => sub.id !== subtaskId)
+          };
+        }
+        return task;
+      }));
+    } catch (error) {
+      console.error("Không thể xóa công việc nhỏ:", error);
+    }
+  };
+
   const handleAddUser = async (newUser: Omit<User, 'id'>) => {
     if (loggedInUser?.role !== 'admin') return;
      try {
@@ -403,6 +461,9 @@ const App: React.FC = () => {
                   onDeleteMultipleTasks={handleDeleteMultipleTasks}
                   initialDateFilter={listDateFilter}
                   onClearFilter={() => setListDateFilter(null)}
+                  onAddSubtask={handleAddSubtask}
+                  onToggleSubtask={handleToggleSubtask}
+                  onDeleteSubtask={handleDeleteSubtask}
                 />;
       case 'Danh sách công việc':
         return <TodoList 
@@ -417,6 +478,9 @@ const App: React.FC = () => {
                   onDeleteMultipleTasks={handleDeleteMultipleTasks}
                   initialDateFilter={listDateFilter}
                   onClearFilter={() => setListDateFilter(null)}
+                  onAddSubtask={handleAddSubtask}
+                  onToggleSubtask={handleToggleSubtask}
+                  onDeleteSubtask={handleDeleteSubtask}
                 />;
       case 'Lịch':
         return <CalendarView 

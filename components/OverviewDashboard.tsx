@@ -112,6 +112,9 @@ interface OverviewDashboardProps {
     onDeleteMultipleTasks: (ids: number[]) => void;
     initialDateFilter?: string | null;
     onClearFilter?: () => void;
+    onAddSubtask?: (taskId: number, name: string) => Promise<void>;
+    onToggleSubtask?: (taskId: number, subtaskId: number, isCompleted: boolean) => Promise<void>;
+    onDeleteSubtask?: (taskId: number, subtaskId: number) => Promise<void>;
 }
 
 const OverviewDashboard: React.FC<OverviewDashboardProps> = ({ 
@@ -126,6 +129,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     onDeleteMultipleTasks,
     initialDateFilter,
     onClearFilter,
+    onAddSubtask,
+    onToggleSubtask,
+    onDeleteSubtask,
 }) => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -370,6 +376,9 @@ const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                 setPriorityFilter={setPriorityFilter}
                 statusFilter={statusFilter}
                 setStatusFilter={setStatusFilter}
+                onAddSubtask={onAddSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
             />
         </div>
     );
