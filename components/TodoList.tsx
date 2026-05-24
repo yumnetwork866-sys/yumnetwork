@@ -46,6 +46,35 @@ const formatDate = (dateString: string): string => {
     return dateString;
 };
 
+/**
+ * Detects URLs inside the string text and parses them into clickable anchor tags.
+ */
+const renderClickableLinks = (text: string) => {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          referrerPolicy="no-referrer"
+          className="text-blue-600 hover:text-blue-800 underline break-all inline hover:font-medium"
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          {part}
+        </a>
+      );
+    }
+    return part;
+  });
+};
+
 
 interface TaskRowProps {
   task: Task;
@@ -243,7 +272,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                     }`}
                     style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
                   >
-                    {task.notes}
+                    {renderClickableLinks(task.notes)}
                   </div>
                   {isLongNotes && (
                     <button
