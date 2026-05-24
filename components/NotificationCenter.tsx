@@ -13,9 +13,34 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Keep track of already shown notification IDs to prevent duplicate browser notifications
+  const knownNotificationIds = useRef<Set<number>>(new Set());
+  const hasLoadedInitial = useRef(false);
+
   const unreadCount = notifications.filter(n => n.isRead === 0).length;
+
+  const triggerBrowserNotification = (notif: Notification) => {
+    if (!('Notification' in window)) return;
+    if (window.Notification.permission === 'granted') {
+      try {
+        const bodyContent = notif.message;
+        const n = new window.Notification(notif.title, {
+          body: bodyContent,
+          icon: '/favicon.ico',
+        });
+
+        n.onclick = () => {
+          window.focus();
+          setIsOpen(true);
+        };
+      } catch (err) {
+        console.error('Error showing browser notification:', err);
+      }
+    }
+  };
 
   const fetchNotifications = async () => {
     if (!currentUser) return;
@@ -26,12 +51,44 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       const data = await apiRequest<Notification[]>(
         `/api/notifications?userId=${currentUser.id}&localDate=${todayStr}`
       );
-      setNotifications(data || []);
+      const fetched = data || [];
+
+      if (hasLoadedInitial.current) {
+        // Only trigger browser notifications for new unread notifications that we haven't seen in this session
+        fetched.forEach(item => {
+          if (item.isRead === 0 && !knownNotificationIds.current.has(item.id)) {
+            triggerBrowserNotification(item);
+          }
+        });
+      }
+
+      // Add everything fetched to the known set so we don't trigger them next time
+      fetched.forEach(item => knownNotificationIds.current.add(item.id));
+      hasLoadedInitial.current = true;
+      setNotifications(fetched);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setBrowserPermission(window.Notification.permission);
+      // Auto-request permission on mount if it's default
+      if (window.Notification.permission === 'default') {
+        window.Notification.requestPermission().then(perm => {
+          setBrowserPermission(perm);
+        });
+      }
+    }
+  }, []);
+
+  const requestBrowserPermission = async () => {
+    if (!('Notification' in window)) return;
+    const res = await window.Notification.requestPermission();
+    setBrowserPermission(res);
   };
 
   useEffect(() => {
@@ -196,6 +253,32 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                 </button>
               )}
             </div>
+
+            {/* Browser Permission Banner */}
+            {browserPermission === 'default' && (
+              <div className="bg-blue-50 p-3 border-b border-blue-100 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-500 animate-pulse flex-shrink-0" />
+                  <span className="text-[11px] text-blue-800 leading-snug">
+                    Bật thông báo để nhận cảnh báo ngay lập tức khi có việc mới hoặc chưa xong!
+                  </span>
+                </div>
+                <button
+                  onClick={requestBrowserPermission}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-2.5 rounded shadow-sm focus:outline-none flex-shrink-0 transition-colors"
+                >
+                  Cho phép
+                </button>
+              </div>
+            )}
+            {browserPermission === 'denied' && (
+              <div className="bg-amber-50 p-2.5 border-b border-amber-100 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                <span className="text-[11px] text-amber-800 leading-tight">
+                  Thông báo trình duyệt đang bị chặn. Vui lòng cho phép quyền thông báo trong cài đặt để nhận cảnh báo tức thời.
+                </span>
+              </div>
+            )}
 
             {/* Notifications List Content */}
             <div className="max-h-96 overflow-y-auto divide-y divide-gray-50" id="notification-items-container">
