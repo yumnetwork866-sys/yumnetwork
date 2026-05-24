@@ -5,6 +5,7 @@ import OverviewDashboard from './components/OverviewDashboard';
 import CalendarView from './components/CalendarView';
 import UserManagement from './components/UserManagement';
 import Login from './components/Login';
+import NotificationCenter from './components/NotificationCenter';
 import { apiRequest } from './api';
 
 const normalizeUser = (user: User): User => {
@@ -33,6 +34,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [listDateFilter, setListDateFilter] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [notificationsRefreshTrigger, setNotificationsRefreshTrigger] = useState(0);
 
   const [loggedInUser, setLoggedInUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('loggedInUser');
@@ -198,6 +200,7 @@ const App: React.FC = () => {
                 return b.id - a.id;
             });
             setTasks(updatedTasks);
+            setNotificationsRefreshTrigger(prev => prev + 1);
         }
     } catch (error) { console.error("Không thể thêm công việc:", error); }
   };
@@ -222,6 +225,7 @@ const App: React.FC = () => {
                 if (diff !== 0) return diff;
                 return b.id - a.id;
             }));
+            setNotificationsRefreshTrigger(prev => prev + 1);
         }
     } catch (error) {
         console.error("Không thể thêm nhiều công việc:", error);
@@ -548,6 +552,7 @@ const App: React.FC = () => {
                 ))}
             </nav>
             <div className="flex items-center space-x-4">
+                <NotificationCenter currentUser={loggedInUser} refreshTrigger={notificationsRefreshTrigger} />
                 <span className="text-sm text-gray-700 font-bold">
                     {loggedInUser.name}
                 </span>
@@ -561,7 +566,8 @@ const App: React.FC = () => {
         </div>
 
         {/* Mobile Menu Button (Hamburger) */}
-        <div className="md:hidden">
+        <div className="md:hidden flex items-center gap-2">
+            <NotificationCenter currentUser={loggedInUser} refreshTrigger={notificationsRefreshTrigger} />
             <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 rounded-md text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"

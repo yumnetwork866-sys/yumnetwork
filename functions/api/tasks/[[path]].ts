@@ -122,6 +122,26 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
         case 'POST': {
             const body = await request.json();
 
+            // Ensure notifications table exists
+            try {
+                await env.DB.prepare(`
+                    CREATE TABLE IF NOT EXISTS notifications (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        userId INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        message TEXT NOT NULL,
+                        isRead INTEGER DEFAULT 0,
+                        taskId INTEGER,
+                        createdAt TEXT NOT NULL,
+                        FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE
+                    )
+                `).run();
+            } catch (err) {
+                console.error("Failed to precheck notifications table: ", err);
+            }
+
             if (Array.isArray(body)) {
                 // Bulk insert
                 const newTasks: Omit<Task, 'id'>[] = body;
@@ -136,6 +156,29 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
                 
                 const results = await env.DB.batch<Task>(statements);
                 const insertedTasks = results.map(r => r.results?.[0]).filter(Boolean);
+
+                // Auto-create notification for assignees
+                try {
+                    const createdAt = new Date().toISOString();
+                    const notifStatements = insertedTasks.map(task => {
+                        if (!task.assigneeId) return null;
+                        return env.DB.prepare(`
+                            INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
+                            VALUES (?, 'NEW_TASK', 'Công việc mới được giao', ?, 0, ?, ?)
+                        `).bind(
+                            task.assigneeId,
+                            `Bạn đã được giao công việc: "${task.name}" (Hạn chót: ${task.deadline})`,
+                            task.id,
+                            createdAt
+                        );
+                    }).filter(Boolean);
+
+                    if (notifStatements.length > 0) {
+                        await env.DB.batch(notifStatements as any);
+                    }
+                } catch (notifErr) {
+                    console.error("Failed to trigger bulk notifications:", notifErr);
+                }
 
                 return new Response(JSON.stringify(insertedTasks), {
                     status: 201,
@@ -157,6 +200,25 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
                         newTask.notes
                     );
                 const result = await stmt.first<Task>();
+
+                // Auto-create notification for assignee
+                if (result && result.assigneeId) {
+                    try {
+                        const createdAt = new Date().toISOString();
+                        await env.DB.prepare(`
+                            INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
+                            VALUES (?, 'NEW_TASK', 'Công việc mới được giao', ?, 0, ?, ?)
+                        `).bind(
+                            result.assigneeId,
+                            `Bạn đã được giao công việc: "${result.name}" (Hạn chót: ${result.deadline})`,
+                            result.id,
+                            createdAt
+                        ).run();
+                    } catch (notifErr) {
+                        console.error("Failed to trigger task notification:", notifErr);
+                    }
+                }
+
                 return new Response(JSON.stringify(result), {
                     status: 201,
                     headers: { 'Content-Type': 'application/json' },

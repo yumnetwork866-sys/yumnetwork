@@ -48,3 +48,14 @@ export interface Task {
 }
 
 export type View = 'Tổng quan' | 'Danh sách công việc' | 'Lịch' | 'Người dùng';
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: 'NEW_TASK' | 'EOD_WARNING' | string;
+  title: string;
+  message: string;
+  isRead: number; // 0 or 1
+  taskId: number | null;
+  createdAt: string;
+}

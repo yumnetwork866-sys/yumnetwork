@@ -9,10 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cloudflare/workers-types": "^4.20251008.0",
+    "lucide-react": "^1.16.0",
+    "motion": "^12.40.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "recharts": "^3.2.1",
-    "@cloudflare/workers-types": "^4.20251008.0"
+    "recharts": "^3.2.1"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
