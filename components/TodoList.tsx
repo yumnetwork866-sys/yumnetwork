@@ -236,13 +236,39 @@ const TaskRow: React.FC<TaskRowProps> = ({
               />
           ) : (
               task.notes ? (
-                <div 
-                  className={`text-gray-700 text-xs leading-relaxed transition-all duration-300 ${
-                    !isNotesExpanded ? 'line-clamp-2' : ''
-                  }`}
-                  style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                >
-                  {task.notes}
+                <div className="flex items-start justify-between gap-1.5 group/notes w-full">
+                  <div 
+                    className={`text-gray-700 text-xs leading-relaxed transition-all duration-300 flex-grow ${
+                      !isNotesExpanded ? 'line-clamp-2' : ''
+                    }`}
+                    style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                  >
+                    {task.notes}
+                  </div>
+                  {isLongNotes && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsNotesExpanded(!isNotesExpanded);
+                      }}
+                      className="p-1 -mt-1 rounded hover:bg-gray-200 text-gray-500 hover:text-blue-600 transition-all focus:outline-none flex-shrink-0"
+                      title={isNotesExpanded ? "Thu gọn" : "Xem chi tiết"}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        className={`transform transition-transform duration-200 ${isNotesExpanded ? 'rotate-180 text-blue-600' : ''}`}
+                      >
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ) : (
                 canEditNotes ? <span className="text-gray-400 italic text-xs">Thêm ghi chú...</span> : ''
@@ -251,39 +277,13 @@ const TaskRow: React.FC<TaskRowProps> = ({
         </td>
         {canManageSome && (
           <td className="p-3 text-right whitespace-nowrap align-top">
-            <div className="flex flex-col items-end gap-2">
-              {isLongNotes && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsNotesExpanded(!isNotesExpanded);
-                  }}
-                  className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100/90 py-0.5 px-2 rounded-full border border-blue-100 transition select-none focus:outline-none"
-                >
-                  <span>{isNotesExpanded ? 'Thu gọn' : 'Xem chi tiết'}</span>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    className={`transform transition-transform duration-250 ${isNotesExpanded ? 'rotate-180' : ''}`}
-                  >
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </button>
-              )}
-              {isManageable && (
-                <div className="flex items-center gap-2 mt-1">
-                  <button onClick={() => onEdit(task)} className="text-blue-500 hover:text-blue-700 text-xs font-medium">Sửa</button>
-                  <span className="text-gray-300 text-[10px]">|</span>
-                  <button onClick={() => onDeleteTask(task.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Xóa</button>
-                </div>
-              )}
-            </div>
+            {isManageable && (
+              <div className="flex items-center justify-end gap-2">
+                <button onClick={() => onEdit(task)} className="text-blue-500 hover:text-blue-700 text-xs font-medium">Sửa</button>
+                <span className="text-gray-300 text-[10px]">|</span>
+                <button onClick={() => onDeleteTask(task.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Xóa</button>
+              </div>
+            )}
           </td>
         )}
       </tr>
