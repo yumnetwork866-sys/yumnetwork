@@ -30,7 +30,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
   const knownNotificationIds = useRef<Set<number>>(new Set());
   const hasLoadedInitial = useRef(false);
 
-  const unreadCount = isEnabled ? notifications.filter(n => n.isRead === 0).length : 0;
+  const unreadCount = isEnabled ? notifications.filter(n => Number(n.isRead) === 0).length : 0;
 
   const toggleNotifications = () => {
     setIsEnabled(prev => {
@@ -195,7 +195,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       if (hasLoadedInitial.current && isEnabled) {
         // Only trigger browser notifications for new unread notifications that we haven't seen in this session
         fetched.forEach(item => {
-          if (item.isRead === 0 && !knownNotificationIds.current.has(item.id)) {
+          if (Number(item.isRead) === 0 && !knownNotificationIds.current.has(item.id)) {
             triggerBrowserNotification(item);
           }
         });
@@ -527,12 +527,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                     <div
                       key={notification.id}
                       onClick={(e) => {
-                        if (notification.isRead === 0) {
+                        if (Number(notification.isRead) === 0) {
                           handleMarkAsRead(notification.id, e);
                         }
                       }}
                       className={`p-4 flex items-start gap-3 transition-colors select-none ${
-                        notification.isRead === 0 
+                        Number(notification.isRead) === 0 
                           ? 'bg-blue-50/20 hover:bg-blue-50/40 cursor-pointer' 
                           : 'hover:bg-gray-50/50'
                       }`}
@@ -552,14 +552,14 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                             {formatTime(notification.createdAt)}
                           </span>
                         </div>
-                        <p className={`text-xs leading-relaxed text-gray-600 ${notification.isRead === 0 ? 'font-medium' : ''}`}>
+                        <p className={`text-xs leading-relaxed text-gray-600 ${Number(notification.isRead) === 0 ? 'font-medium' : ''}`}>
                           {notification.message}
                         </p>
                       </div>
 
                       {/* Right actions (Mark Read/Delete) */}
                       <div className="flex flex-col items-center gap-1.5 flex-shrink-0 self-center">
-                        {notification.isRead === 0 && (
+                        {Number(notification.isRead) === 0 && (
                           <button
                             onClick={(e) => handleMarkAsRead(notification.id, e)}
                             className="p-1 rounded-full text-blue-500 hover:bg-blue-50 transition-colors focus:outline-none"
@@ -596,39 +596,75 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3 pointer-events-none max-w-sm w-full px-4 sm:px-0">
         <AnimatePresence>
           {toasts.map((toast) => {
-            const val = getNotificationIcon(toast.notification.type);
+            const isEod = toast.notification.type === 'EOD_WARNING';
+            const isNew = toast.notification.type === 'NEW_TASK';
+            
+            // Premium gradients and configurations matching the modern clean brand style
+            const accentColor = isEod 
+              ? 'from-rose-500 to-red-650' 
+              : isNew 
+                ? 'from-emerald-400 to-teal-600' 
+                : 'from-blue-500 to-indigo-650';
+                
+            const cardBg = 'bg-slate-900/95 backdrop-blur-xl border border-slate-800/80 text-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.35)]';
+            const titleColor = 'text-white font-bold';
+            const msgColor = 'text-slate-200';
+            const badgeIconBg = isEod 
+              ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' 
+              : isNew 
+                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
+                : 'bg-blue-500/10 border border-blue-500/20 text-blue-400';
+
             return (
               <motion.div
                 key={toast.id}
-                initial={{ opacity: 0, x: 200, scale: 0.9, y: -10 }}
-                animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
-                exit={{ opacity: 0, x: 100, scale: 0.85, transition: { duration: 0.2 } }}
-                className="pointer-events-auto bg-white/95 backdrop-blur-md border border-gray-150/90 shadow-2xl rounded-2xl p-4 flex gap-3.5 items-start relative overflow-hidden group hover:shadow-3xl transition-all cursor-pointer ring-1 ring-black/5"
+                initial={{ opacity: 0, x: 280, scale: 0.9, y: -10 }}
+                animate={{ 
+                  opacity: 1, 
+                  x: 0, 
+                  scale: 1, 
+                  y: 0,
+                  transition: { type: 'spring', stiffness: 380, damping: 25 }
+                }}
+                exit={{ 
+                  opacity: 0, 
+                  scale: 0.9, 
+                  x: 150, 
+                  transition: { duration: 0.22, ease: 'easeIn' } 
+                }}
+                className={`pointer-events-auto rounded-2xl p-4 flex gap-4 items-start relative overflow-hidden group transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer ring-1 ring-white/10 select-none ${cardBg}`}
                 onClick={() => {
                   setIsOpen(true);
                   setToasts(prev => prev.filter(t => t.id !== toast.id));
                 }}
               >
-                {/* Visual side accent border */}
-                <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${
-                  toast.notification.type === 'EOD_WARNING' ? 'bg-rose-500' : 'bg-emerald-500'
-                }`} />
+                {/* Brand glowing accent side line */}
+                <div className={`absolute top-0 left-0 bottom-0 w-1.5 bg-gradient-to-b ${accentColor}`} />
                 
-                {/* Responsive colored badge icon */}
-                <div className={`p-2 rounded-xl flex-shrink-0 ml-1.5 ${val.bg}`}>
-                  {val.icon}
+                {/* Premium visual badge icon */}
+                <div className={`p-2.5 rounded-xl flex-shrink-0 flex items-center justify-center ${badgeIconBg}`}>
+                  {isEod ? (
+                    <AlertCircle className="w-4 h-4 animate-pulse" />
+                  ) : isNew ? (
+                    <PlusCircle className="w-4 h-4" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 text-sky-400" />
+                  )}
                 </div>
                 
-                {/* Notification body details */}
-                <div className="flex-grow min-w-0 pr-4">
-                  <h4 className="text-xs font-bold text-gray-900 mb-0.5 flex items-center gap-1.5">
+                {/* Notification body details with typography layout spacing */}
+                <div className="flex-grow min-w-0 pr-5">
+                  <h4 className={`text-xs leading-normal mb-1 flex items-center gap-2 ${titleColor}`}>
                     {toast.notification.title}
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping" />
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
+                    </span>
                   </h4>
-                  <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                  <p className={`text-xs leading-relaxed ${msgColor} font-medium`}>
                     {toast.notification.message}
                   </p>
-                  <span className="text-[9px] text-gray-450 mt-1 block font-semibold text-blue-500">
+                  <span className="text-[10px] font-bold mt-2 pb-0.5 block text-sky-400 tracking-wider uppercase opacity-90 group-hover:opacity-100 transition-opacity">
                     Nhấp để mở chi tiết • Vừa mới nhận
                   </span>
                 </div>
@@ -640,11 +676,21 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                     e.stopPropagation();
                     setToasts(prev => prev.filter(t => t.id !== toast.id));
                   }}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors focus:outline-none flex-shrink-0 self-start -mt-1 -mr-1"
+                  className="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors focus:outline-none flex-shrink-0 self-start -mt-1 -mr-1"
                   title="Đóng thông báo"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
+
+                {/* Remaining-time Progress Bar at the absolute base */}
+                <div className="absolute bottom-0 left-1.5 right-0 h-[3.5px] bg-white/5 overflow-hidden">
+                  <motion.div
+                    initial={{ width: "100%" }}
+                    animate={{ width: "0%" }}
+                    transition={{ duration: 8, ease: "linear" }}
+                    className={`h-full bg-gradient-to-r ${accentColor}`}
+                  />
+                </div>
               </motion.div>
             );
           })}
