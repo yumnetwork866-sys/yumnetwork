@@ -508,13 +508,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
             </div>
 
             {/* Dropdown Footer */}
-            <div className="p-3 bg-gray-50/80 border-t border-gray-100 flex flex-col items-center gap-1 text-center select-none">
+            <div className="p-2 bg-gray-50/50 border-t border-gray-100 text-center">
               <span className="text-[10px] text-gray-400 font-medium">
                 Lịch sử lưu trữ trong vòng 30 ngày qua
               </span>
-              <p className="text-[9px] text-blue-600 leading-tight bg-blue-50/60 p-1.5 rounded border border-blue-100/40">
-                💡 <strong>Mẹo:</strong> Để nhận thông báo đẩy thực sự nổi ngoài màn hình ngay cả khi thu nhỏ trình duyệt, hãy đảm bảo bạn mở ứng dụng bằng nút <strong>"Mở Tab Mới"</strong> trên thanh công cụ của AI Studio!
-              </p>
             </div>
           </motion.div>
         )}
