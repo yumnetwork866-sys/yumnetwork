@@ -34,8 +34,104 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     });
   };
 
+  // Play a beautiful synthetic notification chime sound using Web Audio API
+  const playNotificationSound = () => {
+    if (!isEnabled) return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      // Chime note 1
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc1.start(ctx.currentTime);
+      osc1.stop(ctx.currentTime + 0.4);
+
+      // Chime note 2 (harmonized slightly later for professional feel)
+      setTimeout(() => {
+        try {
+          const osc2 = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(880, ctx.currentTime); // A5
+          gain2.gain.setValueAtTime(0.15, ctx.currentTime);
+          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          osc2.start(ctx.currentTime);
+          osc2.stop(ctx.currentTime + 0.5);
+        } catch {}
+      }, 120);
+
+    } catch (err) {
+      console.warn('Audio Context is blocked or not supported yet: ', err);
+    }
+  };
+
+  // Keep track of the original title and set up dynamic title flashing if page is hidden
+  const titleFlashIntervalRef = useRef<any>(null);
+  const originalTitleRef = useRef<string>(document.title || 'Quản lý công việc');
+
+  const startTitleFlashing = (message: string) => {
+    if (titleFlashIntervalRef.current) clearInterval(titleFlashIntervalRef.current);
+    
+    let isOriginal = false;
+    titleFlashIntervalRef.current = setInterval(() => {
+      document.title = isOriginal 
+        ? originalTitleRef.current 
+        : `🔔 [Bộ phận mới] ${message.length > 20 ? message.substring(0, 20) + '...' : message}`;
+      isOriginal = !isOriginal;
+    }, 1200);
+  };
+
+  const stopTitleFlashing = () => {
+    if (titleFlashIntervalRef.current) {
+      clearInterval(titleFlashIntervalRef.current);
+      titleFlashIntervalRef.current = null;
+    }
+    document.title = originalTitleRef.current;
+  };
+
+  // Stop title flashing immediately when browser becomes active/focused
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        stopTitleFlashing();
+      }
+    };
+    
+    const handleWindowFocus = () => {
+      stopTitleFlashing();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+      if (titleFlashIntervalRef.current) clearInterval(titleFlashIntervalRef.current);
+    };
+  }, []);
+
   const triggerBrowserNotification = (notif: Notification) => {
     if (!isEnabled) return;
+    
+    // Play chime sound immediately
+    playNotificationSound();
+
+    // Flash tab title if page is in background
+    if (document.hidden) {
+      startTitleFlashing(notif.message || notif.title);
+    }
+
     if (!('Notification' in window)) return;
     if (window.Notification.permission === 'granted') {
       try {
@@ -43,6 +139,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
         const n = new window.Notification(notif.title, {
           body: bodyContent,
           icon: '/favicon.ico',
+          tag: `task-${notif.taskId || notif.id}`, // groups or prevents redundant popups
+          requireInteraction: true // keeps banner open until actioned
         });
 
         n.onclick = () => {
@@ -384,10 +482,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
             </div>
 
             {/* Dropdown Footer */}
-            <div className="p-2 bg-gray-50/50 border-t border-gray-100 text-center">
-              <span className="text-[10px] text-gray-400">
+            <div className="p-3 bg-gray-50/80 border-t border-gray-100 flex flex-col items-center gap-1 text-center select-none">
+              <span className="text-[10px] text-gray-400 font-medium">
                 Lịch sử lưu trữ trong vòng 30 ngày qua
               </span>
+              <p className="text-[9px] text-blue-600 leading-tight bg-blue-50/60 p-1.5 rounded border border-blue-100/40">
+                💡 <strong>Mẹo:</strong> Để nhận thông báo đẩy thực sự nổi ngoài màn hình ngay cả khi thu nhỏ trình duyệt, hãy đảm bảo bạn mở ứng dụng bằng nút <strong>"Mở Tab Mới"</strong> trên thanh công cụ của AI Studio!
+              </p>
             </div>
           </motion.div>
         )}
