@@ -126,7 +126,15 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
         }
 
         case 'POST': {
-            const body: any = await request.json();
+            let body: any = {};
+            try {
+                const text = await request.text();
+                if (text) {
+                    body = JSON.parse(text);
+                }
+            } catch (err) {
+                console.warn('Failed to parse request JSON or body is empty:', err);
+            }
 
             // Mark all as read
             if (pathId === 'read-all') {

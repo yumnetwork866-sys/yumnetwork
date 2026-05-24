@@ -212,22 +212,57 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     }
   };
 
+  const isInsideIframe = () => {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  };
+
+  const triggerTestNotification = () => {
+    const testNotif: Notification = {
+      id: Date.now(),
+      userId: currentUser.id,
+      type: 'NEW_TASK',
+      title: '🔔 Thử nghiệm thông báo đẩy',
+      message: 'Thông báo đẩy góc màn hình máy tính hoạt động hoàn hảo ngay cả khi bạn đang làm việc ở ứng dụng khác!',
+      isRead: 0,
+      taskId: null,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Simulate initial loading flag so our visual toast & desktop popups get triggered
+    const prevInitial = hasLoadedInitial.current;
+    hasLoadedInitial.current = true;
+    triggerBrowserNotification(testNotif);
+    hasLoadedInitial.current = prevInitial;
+  };
+
   useEffect(() => {
     if ('Notification' in window) {
       setBrowserPermission(window.Notification.permission);
-      // Auto-request permission on mount if it's default
-      if (window.Notification.permission === 'default') {
-        window.Notification.requestPermission().then(perm => {
-          setBrowserPermission(perm);
-        });
+      // Auto-request permission on mount if it's default and not inside iframe
+      if (window.Notification.permission === 'default' && !isInsideIframe()) {
+        try {
+          window.Notification.requestPermission().then(perm => {
+            setBrowserPermission(perm);
+          });
+        } catch (e) {
+          console.warn('Auto Notification request blocked:', e);
+        }
       }
     }
   }, []);
 
   const requestBrowserPermission = async () => {
     if (!('Notification' in window)) return;
-    const res = await window.Notification.requestPermission();
-    setBrowserPermission(res);
+    try {
+      const res = await window.Notification.requestPermission();
+      setBrowserPermission(res);
+    } catch (err) {
+      console.warn('User interaction gesture required or iframe blocks permissions:', err);
+    }
   };
 
   useEffect(() => {
@@ -416,13 +451,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
               </button>
             </div>
 
-            {/* Browser Permission Banner */}
-            {isEnabled && browserPermission === 'default' && (
+             {/* Browser Permission Banner */}
+            {isEnabled && isInsideIframe() && (
+              <div className="bg-blue-50/80 p-3.5 border-b border-blue-100/60 flex flex-col gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-blue-800 leading-normal font-medium">
+                    Bạn đang xem thử phần mềm trong Frame của AI Studio. Để nhận thông báo đẩy <strong>nổi ngoài màn hình</strong> ngay cả khi làm việc ở ứng dụng khác:
+                  </p>
+                </div>
+                <ol className="text-[10px] text-blue-800 list-decimal list-inside pl-1 space-y-1 bg-white/50 p-2 rounded border border-blue-100 font-semibold selection:bg-blue-200">
+                  <li>Hãy bấm nút <strong className="text-blue-700">"Mở Tab Mới"</strong> trên thanh công cụ của AI Studio phía trên để mở rộng ứng dụng.</li>
+                  <li>Nhấp vào biểu tượng chuông rồi bấm <strong className="text-blue-700">"Cho phép thông báo"</strong>!</li>
+                </ol>
+              </div>
+            )}
+
+            {isEnabled && !isInsideIframe() && browserPermission === 'default' && (
               <div className="bg-blue-50 p-3 border-b border-blue-100 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-500 animate-pulse flex-shrink-0" />
                   <span className="text-[11px] text-blue-800 leading-snug">
-                    Bật thông báo để nhận cảnh báo ngay lập tức khi có việc mới hoặc chưa xong!
+                    Bật thông báo đẩy để nhận cảnh báo ngay lập tức trên góc màn hình khi có việc mới!
                   </span>
                 </div>
                 <button
@@ -433,7 +483,25 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                 </button>
               </div>
             )}
-            {isEnabled && browserPermission === 'denied' && (
+            
+            {isEnabled && !isInsideIframe() && browserPermission === 'granted' && (
+              <div className="bg-emerald-50 p-3 border-b border-emerald-100 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-500 flex-shrink-0 animate-bounce" />
+                  <span className="text-[11px] text-emerald-800 leading-snug font-medium">
+                    Đã cấu hình thông báo đẩy thành công! Hãy trải nghiệm thử nhé.
+                  </span>
+                </div>
+                <button
+                  onClick={triggerTestNotification}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold py-1.5 px-3 rounded shadow-sm focus:outline-none flex-shrink-0 transition-colors"
+                >
+                  🚀 Thử thông báo
+                </button>
+              </div>
+            )}
+
+            {isEnabled && !isInsideIframe() && browserPermission === 'denied' && (
               <div className="bg-amber-50 p-2.5 border-b border-amber-100 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                 <span className="text-[11px] text-amber-800 leading-tight">
