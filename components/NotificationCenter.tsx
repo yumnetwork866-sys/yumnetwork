@@ -220,25 +220,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     }
   };
 
-  const triggerTestNotification = () => {
-    const testNotif: Notification = {
-      id: Date.now(),
-      userId: currentUser.id,
-      type: 'NEW_TASK',
-      title: '🔔 Thử nghiệm thông báo đẩy',
-      message: 'Thông báo đẩy góc màn hình máy tính hoạt động hoàn hảo ngay cả khi bạn đang làm việc ở ứng dụng khác!',
-      isRead: 0,
-      taskId: null,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Simulate initial loading flag so our visual toast & desktop popups get triggered
-    const prevInitial = hasLoadedInitial.current;
-    hasLoadedInitial.current = true;
-    triggerBrowserNotification(testNotif);
-    hasLoadedInitial.current = prevInitial;
-  };
-
   useEffect(() => {
     if ('Notification' in window) {
       setBrowserPermission(window.Notification.permission);
@@ -484,23 +465,6 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
               </div>
             )}
             
-            {isEnabled && !isInsideIframe() && browserPermission === 'granted' && (
-              <div className="bg-emerald-50 p-3 border-b border-emerald-100 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-500 flex-shrink-0 animate-bounce" />
-                  <span className="text-[11px] text-emerald-800 leading-snug font-medium">
-                    Đã cấu hình thông báo đẩy thành công! Hãy trải nghiệm thử nhé.
-                  </span>
-                </div>
-                <button
-                  onClick={triggerTestNotification}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold py-1.5 px-3 rounded shadow-sm focus:outline-none flex-shrink-0 transition-colors"
-                >
-                  🚀 Thử thông báo
-                </button>
-              </div>
-            )}
-
             {isEnabled && !isInsideIframe() && browserPermission === 'denied' && (
               <div className="bg-amber-50 p-2.5 border-b border-amber-100 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
