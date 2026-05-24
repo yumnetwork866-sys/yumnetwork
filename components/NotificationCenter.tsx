@@ -458,8 +458,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                   return (
                     <div
                       key={notification.id}
-                      className={`p-4 flex items-start gap-3 transition-colors ${
-                        notification.isRead === 0 ? 'bg-blue-50/20 hover:bg-blue-50/40' : 'hover:bg-gray-50/50'
+                      onClick={(e) => {
+                        if (notification.isRead === 0) {
+                          handleMarkAsRead(notification.id, e);
+                        }
+                      }}
+                      className={`p-4 flex items-start gap-3 transition-colors select-none ${
+                        notification.isRead === 0 
+                          ? 'bg-blue-50/20 hover:bg-blue-50/40 cursor-pointer' 
+                          : 'hover:bg-gray-50/50'
                       }`}
                     >
                       {/* Left icon badge */}
