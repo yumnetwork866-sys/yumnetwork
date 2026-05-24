@@ -187,14 +187,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
               </div>
             )}
             
-            {(!task.subtasks || task.subtasks.length === 0) && isManageable && (
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="text-[10px] text-gray-400 font-medium hover:text-blue-500 hover:underline self-start mt-0.5 ml-7 flex items-center gap-0.5"
-              >
-                + Thêm subtask
-              </button>
-            )}
+
           </div>
         </td>
         <td className="p-3 text-sm text-gray-700 whitespace-nowrap align-top">{formatDate(task.deadline)}</td>
