@@ -14,15 +14,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>('default');
+  const [isEnabled, setIsEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('notifications_enabled');
+    return saved !== 'false'; // Default to true if not set
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Keep track of already shown notification IDs to prevent duplicate browser notifications
   const knownNotificationIds = useRef<Set<number>>(new Set());
   const hasLoadedInitial = useRef(false);
 
-  const unreadCount = notifications.filter(n => n.isRead === 0).length;
+  const unreadCount = isEnabled ? notifications.filter(n => n.isRead === 0).length : 0;
+
+  const toggleNotifications = () => {
+    setIsEnabled(prev => {
+      const next = !prev;
+      localStorage.setItem('notifications_enabled', String(next));
+      return next;
+    });
+  };
 
   const triggerBrowserNotification = (notif: Notification) => {
+    if (!isEnabled) return;
     if (!('Notification' in window)) return;
     if (window.Notification.permission === 'granted') {
       try {
@@ -44,6 +57,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
 
   const fetchNotifications = async () => {
     if (!currentUser) return;
+    // Even if disabled, retrieve them on manual dropdown open/load, 
+    // but we can skip background polling when disabled.
     try {
       setLoading(true);
       const todayStr = new Date().toISOString().split('T')[0];
@@ -53,7 +68,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       );
       const fetched = data || [];
 
-      if (hasLoadedInitial.current) {
+      if (hasLoadedInitial.current && isEnabled) {
         // Only trigger browser notifications for new unread notifications that we haven't seen in this session
         fetched.forEach(item => {
           if (item.isRead === 0 && !knownNotificationIds.current.has(item.id)) {
@@ -97,9 +112,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
 
   // Read periodically (every 45s) for auto EOD triggers
   useEffect(() => {
+    if (!isEnabled) return;
     const interval = setInterval(fetchNotifications, 45000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentUser, isEnabled]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -243,7 +259,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                   </span>
                 )}
               </div>
-              {unreadCount > 0 && (
+              {isEnabled && unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
                   className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors focus:outline-none"
@@ -254,8 +270,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
               )}
             </div>
 
+            {/* In-app Notification Toggle Panel */}
+            <div className="px-4 py-2 bg-slate-50/80 border-b border-gray-100 flex items-center justify-between select-none">
+              <span className={`text-xs font-semibold transition-colors ${isEnabled ? 'text-gray-700' : 'text-gray-400'}`}>
+                {isEnabled ? 'Đang nhận thông báo' : 'Đã tắt nhận thông báo'}
+              </span>
+              <button
+                type="button"
+                onClick={toggleNotifications}
+                className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-250 ease-in-out focus:outline-none ${
+                  isEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+                aria-pressed={isEnabled}
+                title={isEnabled ? "Tắt nhận thông báo" : "Bật nhận thông báo"}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-250 ease-in-out ${
+                    isEnabled ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             {/* Browser Permission Banner */}
-            {browserPermission === 'default' && (
+            {isEnabled && browserPermission === 'default' && (
               <div className="bg-blue-50 p-3 border-b border-blue-100 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-blue-500 animate-pulse flex-shrink-0" />
@@ -271,7 +309,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
                 </button>
               </div>
             )}
-            {browserPermission === 'denied' && (
+            {isEnabled && browserPermission === 'denied' && (
               <div className="bg-amber-50 p-2.5 border-b border-amber-100 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
                 <span className="text-[11px] text-amber-800 leading-tight">
