@@ -146,7 +146,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                 type="button" 
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="p-1 mt-0.5 rounded hover:bg-gray-200 text-gray-500 transition-colors focus:outline-none"
-                title="Xem việc nhỏ"
+                title="Xem chi tiết"
               >
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -172,7 +172,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200/80 transition-all font-semibold py-0.5 px-1.5 rounded-full flex items-center gap-1"
                 >
-                  Việc nhỏ: {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
+                  Subtask: {task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length}
                 </button>
                 <div className="w-16 h-1 mt-0.5 bg-gray-200 rounded-full overflow-hidden">
                   <div 
@@ -190,7 +190,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="text-[10px] text-gray-400 font-medium hover:text-blue-500 hover:underline self-start mt-0.5 ml-7 flex items-center gap-0.5"
               >
-                + Thêm việc nhỏ
+                + Thêm subtask
               </button>
             )}
           </div>
@@ -270,7 +270,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                       <line x1="3" y1="12" x2="3.01" y2="12"></line>
                       <line x1="3" y1="18" x2="3.01" y2="18"></line>
                     </svg>
-                    Danh sách việc nhỏ ({task.subtasks?.length || 0})
+                    Hạng mục chi tiết ({task.subtasks?.length || 0})
                   </h4>
                   {task.subtasks && task.subtasks.length > 0 && (
                     <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded-full py-0.5 px-2">
@@ -302,12 +302,12 @@ const TaskRow: React.FC<TaskRowProps> = ({
                         {isManageable && (
                           <button
                             onClick={() => {
-                              if (confirm('Bạn có chắc chắn muốn xóa đầu việc nhỏ này?')) {
+                              if (confirm('Bạn có chắc chắn muốn xóa subtask này?')) {
                                 onDeleteSubtask?.(task.id, subtask.id);
                               }
                             }}
                             className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 text-xs p-1 rounded hover:bg-red-50 transition"
-                            title="Xóa việc nhỏ"
+                            title="Xóa subtask"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="3 6 5 6 21 6"></polyline>
@@ -320,7 +320,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                   </div>
                 ) : (
                   <div className="text-xs text-gray-400 italic mb-4 py-3 text-center bg-gray-50/50 border border-dashed rounded-lg">
-                    Chưa có công việc nhỏ nào được thêm cho đầu việc lớn này.
+                    Chưa có subtask nào được thêm cho đầu việc lớn này.
                   </div>
                 )}
 
@@ -344,7 +344,7 @@ const TaskRow: React.FC<TaskRowProps> = ({
                     <input
                       type="text"
                       name="subtaskName"
-                      placeholder="Nhập tên đầu việc nhỏ mới..."
+                      placeholder="Nhập tên subtask mới..."
                       className="flex-grow text-[13px] border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-800 bg-white"
                       autoComplete="off"
                     />
