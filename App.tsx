@@ -59,7 +59,43 @@ const App: React.FC = () => {
                     apiRequest<Group[]>('/api/groups'),
                     apiRequest<Task[]>('/api/tasks')
                 ]);
-                setUsers(usersData.map(normalizeUser));
+                
+                const normalizedUsers = usersData.map(normalizeUser);
+                const currentDbUser = normalizedUsers.find(u => u.id === loggedInUser.id);
+                
+                if (!currentDbUser) {
+                    localStorage.removeItem('loggedInUser');
+                    setLoggedInUser(null);
+                    setUsers([]);
+                    setTasks([]);
+                    setGroups([]);
+                    setError("Tài khoản của bạn đã bị xóa khỏi hệ thống.");
+                    return;
+                }
+                
+                if (currentDbUser.password !== loggedInUser.password) {
+                    localStorage.removeItem('loggedInUser');
+                    setLoggedInUser(null);
+                    setUsers([]);
+                    setTasks([]);
+                    setGroups([]);
+                    setError("Mật khẩu của bạn đã được thay đổi từ thiết bị hoặc phiên làm việc khác. Vui lòng đăng nhập lại.");
+                    return;
+                }
+                
+                // Keep other profile properties (name, role, groups) in sync if they changed
+                if (
+                    currentDbUser.name !== loggedInUser.name ||
+                    currentDbUser.email !== loggedInUser.email ||
+                    currentDbUser.role !== loggedInUser.role ||
+                    currentDbUser.groupId !== loggedInUser.groupId ||
+                    JSON.stringify(currentDbUser.managedGroupIds) !== JSON.stringify(loggedInUser.managedGroupIds)
+                ) {
+                    setLoggedInUser(currentDbUser);
+                    localStorage.setItem('loggedInUser', JSON.stringify(currentDbUser));
+                }
+
+                setUsers(normalizedUsers);
                 setGroups(groupsData);
                 setTasks(tasksData);
             } catch (err: any) {
