@@ -25,6 +25,14 @@ const normalizeUser = (user: User): User => {
   return { ...user, managedGroupIds: managed };
 };
 
+const clientHashSha256 = async (str: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(str);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('Tổng quan');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -73,7 +81,11 @@ const App: React.FC = () => {
                     return;
                 }
                 
-                if (currentDbUser.password !== loggedInUser.password) {
+                const hashedLocalPwd = await clientHashSha256(loggedInUser.password);
+                const isPasswordMatch = currentDbUser.password === loggedInUser.password || 
+                                       currentDbUser.password === hashedLocalPwd;
+                
+                if (!isPasswordMatch) {
                     localStorage.removeItem('loggedInUser');
                     setLoggedInUser(null);
                     setUsers([]);
@@ -85,6 +97,7 @@ const App: React.FC = () => {
                 
                 // Keep other profile properties (name, role, groups) in sync if they changed
                 if (
+                    currentDbUser.password !== loggedInUser.password ||
                     currentDbUser.name !== loggedInUser.name ||
                     currentDbUser.email !== loggedInUser.email ||
                     currentDbUser.role !== loggedInUser.role ||
@@ -186,7 +199,12 @@ const App: React.FC = () => {
     try {
       // Fetch all users to check credentials. In a real app, this would be a dedicated login endpoint.
       const allUsers = await apiRequest<User[]>('/api/users');
-      const user = allUsers.find(u => u.email === email && u.password === password);
+      const hashedPassword = await clientHashSha256(password);
+      
+      const user = allUsers.find(u => 
+        u.email === email && 
+        (u.password === hashedPassword || u.password === password)
+      );
       if (user) {
         const normalizedUser = normalizeUser(user);
         localStorage.setItem('loggedInUser', JSON.stringify(normalizedUser));

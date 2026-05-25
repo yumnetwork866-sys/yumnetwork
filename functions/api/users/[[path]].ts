@@ -16,6 +16,22 @@ interface User {
   managedGroupIds?: string | number[] | null;
 }
 
+async function hashSha256(str: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashPasswordIfNeeded(pwd: string): Promise<string> {
+    if (!pwd) return '';
+    if (/^[a-fA-F0-9]{64}$/.test(pwd)) {
+        return pwd; // Already hashed
+    }
+    return await hashSha256(pwd);
+}
+
 const ensureManagedGroupIdsColumnSupported = async (env: Env) => {
     try {
         const usersSchemaStmt = env.DB.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'");
@@ -114,12 +130,13 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
         }
         case 'POST': {
             const newUser: Omit<User, 'id'> = await request.json();
+            const hashedPassword = await hashPasswordIfNeeded(newUser.password);
             const managedGroupIdsStr = Array.isArray(newUser.managedGroupIds)
                 ? JSON.stringify(newUser.managedGroupIds)
                 : '[]';
 
             const stmt = env.DB.prepare('INSERT INTO users (name, role, email, password, groupId, managedGroupIds) VALUES (?, ?, ?, ?, ?, ?) RETURNING *')
-                .bind(newUser.name, newUser.role, newUser.email, newUser.password, newUser.groupId, managedGroupIdsStr);
+                .bind(newUser.name, newUser.role, newUser.email, hashedPassword, newUser.groupId, managedGroupIdsStr);
             const result = await stmt.first<User>();
             
             if (result) {
@@ -138,12 +155,24 @@ const handleRequest = async (request: Request, env: Env, id: string | undefined)
         case 'PUT': {
             if (!id) return new Response('Bad Request: Missing ID', { status: 400 });
             const updatedUser: User = await request.json();
+            
+            // Get existing user to preserve password if not updated/empty
+            const existingStmt = env.DB.prepare('SELECT password FROM users WHERE id = ?').bind(id);
+            const existing = await existingStmt.first<{ password: string }>();
+            
+            let finalPassword = updatedUser.password;
+            if (!finalPassword || finalPassword.trim() === '') {
+                finalPassword = existing?.password || '';
+            } else {
+                finalPassword = await hashPasswordIfNeeded(finalPassword);
+            }
+            
             const managedGroupIdsStr = Array.isArray(updatedUser.managedGroupIds)
                 ? JSON.stringify(updatedUser.managedGroupIds)
                 : '[]';
             
             const updateUserStmt = env.DB.prepare('UPDATE users SET name = ?, role = ?, email = ?, password = ?, groupId = ?, managedGroupIds = ? WHERE id = ? RETURNING *')
-                .bind(updatedUser.name, updatedUser.role, updatedUser.email, updatedUser.password, updatedUser.groupId, managedGroupIdsStr, id);
+                .bind(updatedUser.name, updatedUser.role, updatedUser.email, finalPassword, updatedUser.groupId, managedGroupIdsStr, id);
             const result = await updateUserStmt.first<User>();
 
             // If user's group changed, update their assigned tasks' group

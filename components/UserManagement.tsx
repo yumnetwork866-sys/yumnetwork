@@ -151,6 +151,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
         if (userToEdit) {
             setUser({
                 ...userToEdit,
+                password: '', // Prevent showing the password value in the DOM
                 managedGroupIds: userToEdit.managedGroupIds || []
             });
         } else {
@@ -190,7 +191,15 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
                     </div>
                      <div>
                         <label className="block text-sm font-medium text-gray-700">Mật khẩu</label>
-                        <input type="password" name="password" value={user.password} onChange={handleChange} className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required />
+                        <input 
+                            type="password" 
+                            name="password" 
+                            value={user.password} 
+                            onChange={handleChange} 
+                            placeholder={userToEdit ? "Để trống nếu không muốn đổi" : "Nhập mật khẩu mới"}
+                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                            required={!userToEdit} 
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Vai trò</label>
