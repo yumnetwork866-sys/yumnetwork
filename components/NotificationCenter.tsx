@@ -115,6 +115,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
     
     const handleWindowFocus = () => {
       stopTitleFlashing();
+      fetchNotifications();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -125,7 +126,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
       window.removeEventListener('focus', handleWindowFocus);
       if (titleFlashIntervalRef.current) clearInterval(titleFlashIntervalRef.current);
     };
-  }, []);
+  }, [currentUser]); // Add currentUser to dependency array so fetchNotifications has the correct reference if it changes
 
   const triggerBrowserNotification = (notif: Notification) => {
     if (!isEnabled) return;
@@ -242,8 +243,30 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ currentU
   const requestBrowserPermission = async () => {
     if (!('Notification' in window)) return;
     try {
-      const res = await window.Notification.requestPermission();
+      let res: NotificationPermission;
+      if (typeof window.Notification.requestPermission === 'function') {
+        res = await window.Notification.requestPermission();
+      } else {
+        res = await new Promise<NotificationPermission>((resolve) => {
+          (window.Notification as any).requestPermission((permission: NotificationPermission) => resolve(permission));
+        });
+      }
       setBrowserPermission(res);
+      
+      if (res === 'granted') {
+        // Trigger a nice success system notification to verify it's working
+        try {
+          const n = new window.Notification('🔔 Đã bật thông báo thành công!', {
+            body: 'Bạn sẽ nhận được cảnh báo góc màn hình ngay cả khi đang làm việc ở tab khác.',
+            icon: 'https://cdn-icons-png.flaticon.com/512/9063/9063196.png'
+          });
+          n.onclick = () => {
+            window.focus();
+          };
+        } catch (e) {
+          console.warn('Could not fire welcome notification:', e);
+        }
+      }
     } catch (err) {
       console.warn('User interaction gesture required or iframe blocks permissions:', err);
     }

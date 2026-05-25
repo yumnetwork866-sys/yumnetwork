@@ -75,47 +75,7 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
             const localHour = localHourStr ? parseInt(localHourStr, 10) : null;
             const testEod = url.searchParams.get('testEod');
 
-            // 2. Trigger dynamically EOD Warnings (Hạn chót & chưa hoàn thành)
-            try {
-                // Fetch incomplete tasks for this user whose deadline <= today
-                const incompleteTasksStmt = env.DB.prepare(`
-                    SELECT * FROM tasks 
-                    WHERE assigneeId = ? 
-                      AND status != 'Hoàn thành' 
-                      AND deadline <= ?
-                `).bind(userId, localDate);
-                const { results: tasks } = await incompleteTasksStmt.all<Task>();
-
-                if (tasks && tasks.length > 0) {
-                    // Check existing warnings for these tasks
-                    for (const task of tasks) {
-                        const existingWarningStmt = env.DB.prepare(`
-                            SELECT id FROM notifications 
-                            WHERE userId = ? 
-                              AND taskId = ? 
-                              AND type = 'EOD_WARNING'
-                        `).bind(userId, task.id);
-                        
-                        const existing = await existingWarningStmt.first();
-                        
-                        if (!existing) {
-                            // Insert a dynamic warn notification
-                            const title = 'Cảnh báo hạn chót';
-                            const message = `Công việc "${task.name}" chưa hoàn thành (Hạn chót: ${task.deadline}). Vui lòng kiểm tra lại!`;
-                            const createdAt = new Date().toISOString();
-
-                            await env.DB.prepare(`
-                                INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
-                                VALUES (?, 'EOD_WARNING', ?, ?, 0, ?, ?)
-                            `).bind(userId, title, message, task.id, createdAt).run();
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to check or insert EOD warnings:", err);
-            }
-
-            // 2b. Trigger daily 5:00 PM alerts for members and leaders
+            // 2. Trigger dynamically EOD / Daily Warnings at or after 5:00 PM local time only
             let hourCheck = localHour;
             let datePattern = `${localDate}%`;
             
@@ -126,6 +86,48 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
             }
 
             if (hourCheck !== null && hourCheck >= 17) {
+                // A. Trigger dynamically EOD Warnings for individual pending/overdue tasks
+                try {
+                    // Fetch incomplete tasks for this user whose deadline <= today
+                    const incompleteTasksStmt = env.DB.prepare(`
+                        SELECT * FROM tasks 
+                        WHERE assigneeId = ? 
+                          AND status != 'Hoàn thành' 
+                          AND deadline <= ?
+                    `).bind(userId, localDate);
+                    const { results: tasks } = await incompleteTasksStmt.all<Task>();
+
+                    if (tasks && tasks.length > 0) {
+                        // Check existing warnings for these tasks today
+                        for (const task of tasks) {
+                            const existingWarningStmt = env.DB.prepare(`
+                                SELECT id FROM notifications 
+                                WHERE userId = ? 
+                                  AND taskId = ? 
+                                  AND type = 'EOD_WARNING'
+                                  AND createdAt LIKE ?
+                            `).bind(userId, task.id, datePattern);
+                            
+                            const existing = await existingWarningStmt.first();
+                            
+                            if (!existing) {
+                                // Insert a dynamic warn notification
+                                const title = 'Cảnh báo hạn chót';
+                                const message = `Công việc "${task.name}" chưa hoàn thành (Hạn chót: ${task.deadline}). Vui lòng kiểm tra lại!`;
+                                const createdAt = new Date().toISOString();
+
+                                await env.DB.prepare(`
+                                    INSERT INTO notifications (userId, type, title, message, isRead, taskId, createdAt)
+                                    VALUES (?, 'EOD_WARNING', ?, ?, 0, ?, ?)
+                                `).bind(userId, title, message, task.id, createdAt).run();
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to check or insert EOD warnings:", err);
+                }
+
+                // B. Trigger daily 5:00 PM summary alert for the current user
                 try {
                     // Fetch user info first
                     const userStmt = env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId);
@@ -163,14 +165,14 @@ const handleRequest = async (request: Request, env: Env, pathId: string | undefi
                             }
                         }
 
-                        // B. Check and trigger 'LEADER_WARNING_DAILY' if the user is a leader or admin
+                        // C. Check and trigger 'LEADER_WARNING_DAILY' if the user is a leader or admin
                         if (user.role === 'leader' || user.role === 'admin') {
                             const existingLeaderDailyStmt = env.DB.prepare(`
                                 SELECT id FROM notifications 
                                 WHERE userId = ? 
                                   AND type = 'LEADER_WARNING_DAILY' 
                                   AND createdAt LIKE ?
-                        `).bind(userId, datePattern);
+                            `).bind(userId, datePattern);
                             const existingLeaderDaily = await existingLeaderDailyStmt.first();
 
                             if (!existingLeaderDaily) {
